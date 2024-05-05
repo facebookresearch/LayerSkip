@@ -4,7 +4,6 @@ from typing import List, Optional
 
 import torch
 
-# @manual=fbsource//third-party/pypi/transformers:transformers
 import transformers
 
 

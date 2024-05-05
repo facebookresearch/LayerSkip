@@ -3,7 +3,6 @@ from typing import List, Optional, Tuple
 
 import torch
 
-# @manual=fbsource//third-party/pypi/transformers:transformers
 import transformers
 
 
