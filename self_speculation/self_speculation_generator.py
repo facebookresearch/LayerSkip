@@ -52,11 +52,17 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 ),
                 past_key_values=past_key_values,
                 exit_layer=generation_config.exit_layer,
+                eos_token_id=eos_token_id,
                 calls=calls,
             )
             calls += 1
             total_draft_matches += number_of_matches
             total_generations += num_speculations
+            if eos_token_id in output_ids:
+                # break out of loop when we get an EOS token
+                # remove the EOS token id
+                output_ids = output_ids[: output_ids.index(eos_token_id)]
+                break
         return GenerationStrategyResult(
             predicted_tokens=output_ids,
             acceptance_rate=total_draft_matches / total_generations,
@@ -71,6 +77,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         output_ids: List[int],
         num_speculations: int,
         past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
+        eos_token_id: int,
         calls: int,
         exit_layer: int,
     ):
@@ -91,6 +98,9 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             draft_next_token = decode_next_token(logits=draft_result.logits).item()
             draft_output_ids.append(draft_next_token)
             draft_input_ids = torch.tensor([[draft_next_token]]).to(draft_input_ids)
+            if draft_next_token == eos_token_id:
+                # break out of loop when we get an EOS token
+                break
 
         # input_ids (1 x T_p) and draft_output_ids (1 x T_d) are concatenated together to make
         # 1 x (T_d  + T_p)
