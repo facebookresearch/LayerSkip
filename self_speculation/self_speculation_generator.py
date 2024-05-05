@@ -151,5 +151,5 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             output_ids,
             past_key_values,
             number_of_matches.item(),
-            num_speculations,
+            len(draft_output_ids),
         )
