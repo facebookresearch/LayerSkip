@@ -1,44 +1,28 @@
 import datetime
 import os
 import random
+import logging
 
-import aix
 import torch
 
-# @manual=fbsource//third-party/pypi/transformers:transformers
 import transformers
 
-# @manual=//deeplearning/projects/core_ai:core_ai
-from core_ai.utils import utils
+from arguments import process_cli_arguments
+from data import get_data
+from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
 
-from fblearner.flow.projects.assistant.llms.trainer.core.workflow_tc import (
-    WorkflowTCRunner,
-)
-
-from fblearner.flow.projects.assistant.llms.trainer.projects.layerskip.arguments import (
-    process_cli_arguments,
-)
-
-from fblearner.flow.projects.assistant.llms.trainer.projects.layerskip.data import (
-    get_data,
-)
-
-from fblearner.flow.projects.assistant.llms.trainer.projects.layerskip.self_speculation.autoregressive_generator import (
-    AutoRegressiveGenerationStrategy,
-)
-
-from fblearner.flow.projects.assistant.llms.trainer.projects.layerskip.self_speculation.generator_base import (
+from self_speculation.generator_base import (
     GenerationConfig,
     GenerationResult,
     HuggingfaceLlamaGenerator,
 )
 
-from fblearner.flow.projects.assistant.llms.trainer.projects.layerskip.self_speculation.self_speculation_generator import (
+from self_speculation.self_speculation_generator import (
     SelfSpeculativeGenerationStrategy,
 )
 from tqdm import tqdm
 
-log = utils.get_logger(__name__)
+log = logging.getLogger(__name__)
 
 
 def main():
@@ -54,8 +38,7 @@ def main():
         # only run on rank 0, we don't support parallel inference yet
         return
 
-    pathmgr = utils.get_path_manager()
-    local_model_path: str = pathmgr.get_local_path(benchmark_arguments.model_path)
+    local_model_path: str = benchmark_arguments.model_path
 
     # initialize model
     tokenizer = transformers.LlamaTokenizer.from_pretrained(
@@ -93,7 +76,6 @@ def main():
 
     errors: int = 0
     for i, example in enumerate(tqdm(evaluation_set)):
-        aix.set_run_progress(i, total_steps=len(evaluation_set))
         spec_response: GenerationResult = spec_generator.generate(
             prompt=example.input,
             generation_config=generation_config,
@@ -117,10 +99,12 @@ def main():
 
     metric_result = {"errors": errors, "error_pct": errors / len(evaluation_set)}
     print(metric_result)
-    WorkflowTCRunner.upload_output_to_manifold(
-        folder_path=benchmark_arguments.manifold_output_dir,
-        output=metric_result,
-    )
+
+    # TODO: write output to file
+    # WorkflowTCRunner.upload_output_to_manifold(
+    #     folder_path=benchmark_arguments.manifold_output_dir,
+    #     output=metric_result,
+    # )
 
 
 if __name__ == "__main__":

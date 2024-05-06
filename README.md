@@ -226,3 +226,22 @@ Result:
     ```
     
     ```
+
+
+## Correctness
+- Llama 7B continual:
+    - HumanEval
+    ```
+    torchrun correctness.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+        --data_path dummy \
+        --data_format human_eval \
+        --generation_strategy self_speculative \
+        --num_speculations 6 \
+        --exit_layer 4 \
+        --num_samples 10 \
+        --manifold_output_dir ./logs
+    ```
+    Result:
+    ```
+    
+    ```
