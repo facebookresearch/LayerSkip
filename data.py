@@ -19,8 +19,7 @@ class DatasetFormat:
     CHAT_FORMAT: str = "chat_format"
     CNN_DM_SUMMARIZATION: str = "cnn_dm_summarization"
     CNN_DM_LM: str = "cnn_dm_lm"
-    CNN_DM_FEW_SHOT: str = "cnn_dm_few_shot"
-    XSUM_FEW_SHOT: str = "xsum_few_shot"
+    XSUM_SUMMARIZATION: str = "xsum_summarization"
     HUMAN_EVAL: str = "human_eval"
 
 
@@ -69,27 +68,15 @@ def prepare_cnn_dm_lm_format(data_path: str) -> List[EvaluationExample]:
     return evaluation_data_points
 
 
-def prepare_cnn_dm_summarization_format(data_path: str) -> List[EvaluationExample]:
-    evaluation_data_points = []
-    for data_point in load_dataset("cnn_dailymail", "3.0.0")["test"]:
-        article = data_point["article"]
-        highlights = data_point["highlights"]
-        evaluation_data_points.append(
-            EvaluationExample(
-                input=f"Article: {article}\nSummary:",
-                output=f" {highlights}",
-            )
-        )
-    return evaluation_data_points
-
-
-def prepare_cnn_dm_few_shot(n_shot: int = 1, seed: int = 42) -> List[EvaluationExample]:
-    prompt_keys=["article", "highlights"]
-    shots = load_dataset("cnn_dailymail", name="3.0.0", split="train").shuffle(seed=seed).select(range(n_shot))
+def prepare_cnn_dm_summarization_format(n_shot: int = 0, seed: int = 42) -> List[EvaluationExample]:
     prompt_shots = ""
-    for i in range(n_shot):
-        prompt = "Article: " + shots[i][prompt_keys[0]] + "\nSummary: " + shots[i][prompt_keys[1]].replace("\n", "") + "\n"
-        prompt_shots += prompt
+    if n_shot > 0:
+        prompt_keys=["article", "highlights"]
+        shots = load_dataset("cnn_dailymail", name="3.0.0", split="train").shuffle(seed=seed).select(range(n_shot))
+        for i in range(n_shot):
+            prompt = "Article: " + shots[i][prompt_keys[0]] + "\nSummary: " + shots[i][prompt_keys[1]].replace("\n", "") + "\n"
+            prompt_shots += prompt
+        prompt_shots += "\n"
 
     evaluation_data_points = []
     for data_point in load_dataset("cnn_dailymail", name="3.0.0", split="test"):
@@ -97,19 +84,21 @@ def prepare_cnn_dm_few_shot(n_shot: int = 1, seed: int = 42) -> List[EvaluationE
         highlights = data_point["highlights"]
         evaluation_data_points.append(
             EvaluationExample(
-                input=prompt_shots + "\n" + f"Article: {article}\nSummary:",
+                input=prompt_shots + f"Article: {article}\nSummary:",
                 output=f" {highlights}",
             )
         )
     return evaluation_data_points
 
-def prepare_xsum_few_shot(n_shot: int = 1, seed: int = 42) -> List[EvaluationExample]:
-    prompt_keys=["document", "summary"]
-    shots = load_dataset("xsum", split="train").shuffle(seed=seed).select(range(n_shot))
+def prepare_xsum_summarization_format(n_shot: int = 0, seed: int = 42) -> List[EvaluationExample]:
     prompt_shots = ""
-    for i in range(n_shot):
-        prompt = "Article: " + shots[i][prompt_keys[0]] + "\nSummary: " + shots[i][prompt_keys[1]].replace("\n", "") + "\n"
-        prompt_shots += prompt
+    if n_shot > 0:
+        prompt_keys=["document", "summary"]
+        shots = load_dataset("xsum", split="train").shuffle(seed=seed).select(range(n_shot))
+        for i in range(n_shot):
+            prompt = "Article: " + shots[i][prompt_keys[0]] + "\nSummary: " + shots[i][prompt_keys[1]].replace("\n", "") + "\n"
+            prompt_shots += prompt
+        prompt_shots += "\n"
 
     evaluation_data_points = []
     for data_point in load_dataset('xsum', split='test'):
@@ -117,7 +106,7 @@ def prepare_xsum_few_shot(n_shot: int = 1, seed: int = 42) -> List[EvaluationExa
         highlights = data_point["summary"]
         evaluation_data_points.append(
             EvaluationExample(
-                input=prompt_shots + "\n" + f"Article: {article}\nSummary:",
+                input=prompt_shots + f"Article: {article}\nSummary:",
                 output=f" {highlights}",
             )
         )
@@ -139,19 +128,17 @@ def get_data(
     random_shuffle: bool,
     num_samples: int,
     data_format: str,
-    n_shot: int = 1,
+    n_shot: int = 0,
     seed: int = 42,
 ) -> List[EvaluationExample]:
     if data_format == DatasetFormat.CHAT_FORMAT:
         evaluation_data_points = prepare_evaluation_examples_chat_format(data_path)
     elif data_format == DatasetFormat.CNN_DM_SUMMARIZATION:
-        evaluation_data_points = prepare_cnn_dm_summarization_format(data_path)
+        evaluation_data_points = prepare_cnn_dm_summarization_format(n_shot=n_shot, seed=seed)
+    elif data_format == DatasetFormat.XSUM_SUMMARIZATION:
+        evaluation_data_points = prepare_xsum_summarization_format(n_shot=n_shot, seed=seed)
     elif data_format == DatasetFormat.CNN_DM_LM:
         evaluation_data_points = prepare_cnn_dm_lm_format(data_path)
-    elif data_format == DatasetFormat.CNN_DM_FEW_SHOT:
-        evaluation_data_points = prepare_cnn_dm_few_shot(n_shot=n_shot, seed=seed)
-    elif data_format == DatasetFormat.XSUM_FEW_SHOT:
-        evaluation_data_points = prepare_xsum_few_shot(n_shot=n_shot, seed=seed)
     elif data_format == DatasetFormat.HUMAN_EVAL:
         evaluation_data_points = prepare_human_eval(data_path)
     else:

@@ -120,7 +120,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
             --data_path dummy \
-            --data_format cnn_dm_few_shot \
+            --data_format cnn_dm_summarization \
             --n_shot 1 \
             --num_samples 100 \
             --manifold_output_dir ./logs
@@ -134,7 +134,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
             --data_path dummy \
-            --data_format cnn_dm_few_shot \
+            --data_format cnn_dm_summarization \
             --n_shot 1 \
             --num_samples 100 \
             --generation_strategy self_speculative \
@@ -152,7 +152,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
             --data_path dummy \
-            --data_format xsum_few_shot \
+            --data_format xsum_summarization \
             --n_shot 3 \
             --num_samples 100 \
             --manifold_output_dir ./logs
@@ -166,7 +166,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
             --data_path dummy \
-            --data_format xsum_few_shot \
+            --data_format xsum_summarization \
             --n_shot 3 \
             --num_samples 100 \
             --generation_strategy self_speculative \
