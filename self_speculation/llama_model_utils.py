@@ -15,9 +15,18 @@ class ForwardResult:
 
 def decode_next_token(
     logits: torch.Tensor,
+    sample: Optional[bool] = False,
+    temperature: Optional[float] = 0.7,
+    top_k: Optional[int] = 50,
+    top_p: Optional[float] = 0.95,
 ) -> torch.Tensor:
     logits = logits[:, -1]
-    next_token = logits.argmax(1)
+    if not sample:
+        next_token = logits.argmax(dim=-1)
+    else:
+        filtered_logits = transformers.top_k_top_p_filtering(logits / temperature, top_k=top_k, top_p=top_p)
+        probabilities = torch.nn.functional.softmax(filtered_logits, dim=-1)
+        next_token = torch.multinomial(probabilities, num_samples=1)
 
     return next_token
 
