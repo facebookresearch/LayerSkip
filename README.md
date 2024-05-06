@@ -30,7 +30,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         AR:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_path /fsx-atom/melhoushi/data/cnn_dm/test.json \
+            --data_path dummy \
             --data_format cnn_dm_summarization \
             --num_samples 100 \
             --manifold_output_dir ./logs
@@ -44,7 +44,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         SS:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_path /fsx-atom/melhoushi/data/cnn_dm/test.json \
+            --data_path dummy \
             --data_format cnn_dm_summarization \
             --num_samples 100 \
             --generation_strategy self_speculative \
@@ -61,20 +61,20 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         AR:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_path /fsx-atom/melhoushi/data/cnn_dm/test.json \
+            --data_path dummy \
             --data_format cnn_dm_lm \
             --num_samples 100 \
             --manifold_output_dir ./logs
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.04713794216513634, 'rouge-1': 0.06010835990309715, 'rouge-2': 0.019858235493302345, 'rouge-3': 0.008144848048686981, 'bleu_score': 0.0, 'exact_match': 3562.909912109375}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 0.8102598142623901}, 'time_per_token': {'mean': 0.02532061919569969}, 'tokens_per_second': {'mean': 39.88337937355041}}
+        {'predicted_text': {'rouge-l': 0.14529871940612793, 'rouge-1': 0.30939552187919617, 'rouge-2': 0.06856848299503326, 'rouge-3': 0.019139332696795464, 'bleu_score': 0.0, 'exact_match': 2648.42431640625}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 10.896040379399}, 'time_per_token': {'mean': 0.025808077738291087}, 'tokens_per_second': {'mean': 38.756186706851224}}
         ```
 
         SS:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_path /fsx-atom/melhoushi/data/cnn_dm/test.json \
+            --data_path dummy \
             --data_format cnn_dm_lm \
             --num_samples 100 \
             --generation_strategy self_speculative \
@@ -179,11 +179,12 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         {'predicted_text': {'rouge-l': 0.228690505027771, 'rouge-1': 0.28392985463142395, 'rouge-2': 0.09567989408969879, 'rouge-3': 0.043278768658638, 'bleu_score': 0.0, 'exact_match': 100.5999984741211}, 'acceptance_rate': {'mean': 0.43856151334941385}, 'total_time': {'mean': 1.176209304332733}, 'time_per_token': {'mean': 0.03675654076039791}, 'tokens_per_second': {'mean': 28.22171961784363}}
         ```
 
+
 - Llama 1.5B pretrained from scratch:
 AR:
 ```
 torchrun benchmark.py --model_path /fsx-atom/melhoushi/xldumps/train_llama2_1.5B_sweep_32_gpus/train_llama2_1.5B_sweep_32_gpus_run008/checkpoints/checkpoint_0050000_consolidated_hf/ \
-    --data_path /fsx-atom/melhoushi/data/cnn_dm/test.json \
+    --data_path dummy \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
     --manifold_output_dir ./logs
@@ -196,7 +197,7 @@ Result:
 SS:
 ```
 torchrun benchmark.py --model_path /fsx-atom/melhoushi/xldumps/train_llama2_1.5B_sweep_32_gpus/train_llama2_1.5B_sweep_32_gpus_run008/checkpoints/checkpoint_0050000_consolidated_hf/ \
-    --data_path /fsx-atom/melhoushi/data/cnn_dm/test.json \
+    --data_path dummy \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
     --generation_strategy self_speculative \
