@@ -115,7 +115,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         {'predicted_text': {'rouge-l': 0.2464337944984436, 'rouge-1': 0.27765196561813354, 'rouge-2': 0.11060480773448944, 'rouge-3': 0.058753617107868195, 'bleu_score': 0.0, 'exact_match': 143.40243530273438}, 'acceptance_rate': {'mean': 0.25404511601096247}, 'total_time': {'mean': 0.6747547591604838}, 'time_per_token': {'mean': 0.021292833906666534}, 'tokens_per_second': {'mean': 50.01566022779883}}
         ```
 
-    - CNN/DM Summarization (Few Shot)
+    - CNN/DM Summarization (One Shot)
         AR:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
@@ -145,6 +145,38 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         Result:
         ```
         {'predicted_text': {'rouge-l': 0.17013584077358246, 'rouge-1': 0.23432669043540955, 'rouge-2': 0.07809153199195862, 'rouge-3': 0.03981202840805054, 'bleu_score': 0.0, 'exact_match': 236.6999969482422}, 'acceptance_rate': {'mean': 0.43046684432774784}, 'total_time': {'mean': 0.9261050200462342}, 'time_per_token': {'mean': 0.028940781876444818}, 'tokens_per_second': {'mean': 41.24269124031067}}
+        ```
+
+    - XSUM Summarization (Three Shot)
+        AR:
+        ```
+        torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+            --data_path dummy \
+            --data_format xsum_few_shot \
+            --n_shot 3 \
+            --num_samples 100 \
+            --manifold_output_dir ./logs
+        ```
+        Result:
+        ```
+        {'predicted_text': {'rouge-l': 0.22860220074653625, 'rouge-1': 0.28382208943367004, 'rouge-2': 0.09564505517482758, 'rouge-3': 0.043253131210803986, 'bleu_score': 0.0, 'exact_match': 100.63999938964844}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 1.2253910517692566}, 'time_per_token': {'mean': 0.03829347036778927}, 'tokens_per_second': {'mean': 26.412611989974977}}
+        ```
+
+        SS:
+        ```
+        torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+            --data_path dummy \
+            --data_format xsum_few_shot \
+            --n_shot 3 \
+            --num_samples 100 \
+            --generation_strategy self_speculative \
+            --num_speculations 12 \
+            --exit_layer 8 \
+            --manifold_output_dir ./logs
+        ```
+        Result:
+        ```
+        {'predicted_text': {'rouge-l': 0.228690505027771, 'rouge-1': 0.28392985463142395, 'rouge-2': 0.09567989408969879, 'rouge-3': 0.043278768658638, 'bleu_score': 0.0, 'exact_match': 100.5999984741211}, 'acceptance_rate': {'mean': 0.43856151334941385}, 'total_time': {'mean': 1.176209304332733}, 'time_per_token': {'mean': 0.03675654076039791}, 'tokens_per_second': {'mean': 28.22171961784363}}
         ```
 
 - Llama 1.5B pretrained from scratch:

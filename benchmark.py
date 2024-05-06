@@ -178,6 +178,8 @@ def main(args=None):
         random_shuffle=benchmark_arguments.random_shuffle,
         num_samples=benchmark_arguments.num_samples,
         data_format=benchmark_arguments.data_format,
+        n_shot=benchmark_arguments.n_shot,
+        seed=benchmark_arguments.seed,
     )
     metrics = EvaluationMetrics.build_metrics()
     for i, example in enumerate(tqdm(evaluation_set)):

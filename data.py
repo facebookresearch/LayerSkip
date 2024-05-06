@@ -85,7 +85,7 @@ def prepare_cnn_dm_summarization_format(data_path: str) -> List[EvaluationExampl
 
 def prepare_cnn_dm_few_shot(n_shot: int = 1, seed: int = 42) -> List[EvaluationExample]:
     prompt_keys=["article", "highlights"]
-    shots: str = load_dataset("cnn_dailymail", name="3.0.0", split="train").shuffle(seed=seed).select(range(n_shot))
+    shots = load_dataset("cnn_dailymail", name="3.0.0", split="train").shuffle(seed=seed).select(range(n_shot))
     prompt_shots = ""
     for i in range(n_shot):
         prompt = "Article: " + shots[i][prompt_keys[0]] + "\nSummary: " + shots[i][prompt_keys[1]].replace("\n", "") + "\n"
@@ -104,14 +104,20 @@ def prepare_cnn_dm_few_shot(n_shot: int = 1, seed: int = 42) -> List[EvaluationE
     return evaluation_data_points
 
 def prepare_xsum_few_shot(n_shot: int = 1, seed: int = 42) -> List[EvaluationExample]:
+    prompt_keys=["document", "summary"]
+    shots = load_dataset("xsum", split="train").shuffle(seed=seed).select(range(n_shot))
+    prompt_shots = ""
+    for i in range(n_shot):
+        prompt = "Article: " + shots[i][prompt_keys[0]] + "\nSummary: " + shots[i][prompt_keys[1]].replace("\n", "") + "\n"
+        prompt_shots += prompt
+
     evaluation_data_points = []
-    XSUM_1_SHOT: str = load_dataset('xsum',split='train').shuffle(seed=seed).select(range(n_shot))
     for data_point in load_dataset('xsum', split='test'):
         article = data_point["document"]
         highlights = data_point["summary"]
         evaluation_data_points.append(
             EvaluationExample(
-                input=XSUM_1_SHOT + "\n" + f"Article: {article}\nSummary:",
+                input=prompt_shots + "\n" + f"Article: {article}\nSummary:",
                 output=f" {highlights}",
             )
         )
