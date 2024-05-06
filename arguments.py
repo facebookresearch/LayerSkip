@@ -18,7 +18,8 @@ class BenchmarkArguments:
     model_path: str
     random_shuffle: bool = True
     num_samples: Optional[int] = None
-    seed: int = 1
+    seed: Optional[int] = 42
+    n_shot: Optional[int] = 0
 
 
 def process_cli_arguments() -> Tuple[BenchmarkArguments, GenerationConfig]:
