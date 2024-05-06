@@ -15,12 +15,14 @@ class ForwardResult:
 
 def decode_next_token(
     logits: torch.Tensor,
+    token_idx: int = None,
     sample: Optional[bool] = False,
     temperature: Optional[float] = 0.7,
     top_k: Optional[int] = 50,
     top_p: Optional[float] = 0.95,
 ) -> torch.Tensor:
-    logits = logits[:, -1]
+    if token_idx:
+        logits = logits[:, -1, :]
     if not sample:
         next_token = logits.argmax(dim=-1)
     else:
