@@ -84,7 +84,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.04713794216513634, 'rouge-1': 0.06010835990309715, 'rouge-2': 0.019858235493302345, 'rouge-3': 0.008144848048686981, 'bleu_score': 0.0, 'exact_match': 3562.909912109375}, 'acceptance_rate': {'mean': 0.3754749954491854}, 'total_time': {'mean': 0.7578680038452148}, 'time_per_token': {'mean': 0.023683375120162962}, 'tokens_per_second': {'mean': 48.140634307861326}}
+        {'predicted_text': {'rouge-l': 0.14605551958084106, 'rouge-1': 0.24131913483142853, 'rouge-2': 0.048992596566677094, 'rouge-3': 0.018053824082016945, 'bleu_score': 0.0, 'exact_match': 2646.3798828125}, 'acceptance_rate': {'mean': 0.6698643353581428}, 'total_time': {'mean': 6.796451380252838}, 'time_per_token': {'mean': 0.013813270982354879}, 'tokens_per_second': {'mean': 75.60851264953614}}
         ```
     
     - HumanEval
@@ -97,7 +97,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.2459806650876999, 'rouge-1': 0.2772044837474823, 'rouge-2': 0.11060480773448944, 'rouge-3': 0.058753617107868195, 'bleu_score': 0.0, 'exact_match': 143.28659057617188}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 0.8014862653685779}, 'time_per_token': {'mean': 0.025220286214678752}, 'tokens_per_second': {'mean': 39.754123513291525}}
+        {'predicted_text': {'rouge-l': 0.13615505397319794, 'rouge-1': 0.15974164009094238, 'rouge-2': 0.05530855059623718, 'rouge-3': 0.029869550839066505, 'bleu_score': 0.0, 'exact_match': 513.0487670898438}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 5.588762165569678}, 'time_per_token': {'mean': 0.025083595273516526}, 'tokens_per_second': {'mean': 39.88735136171667}}
         ```
 
         SS:
@@ -112,7 +112,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.2464337944984436, 'rouge-1': 0.27765196561813354, 'rouge-2': 0.11060480773448944, 'rouge-3': 0.058753617107868195, 'bleu_score': 0.0, 'exact_match': 143.40243530273438}, 'acceptance_rate': {'mean': 0.25404511601096247}, 'total_time': {'mean': 0.6747547591604838}, 'time_per_token': {'mean': 0.021292833906666534}, 'tokens_per_second': {'mean': 50.01566022779883}}
+        {'predicted_text': {'rouge-l': 0.13653630018234253, 'rouge-1': 0.16005906462669373, 'rouge-2': 0.05534951388835907, 'rouge-3': 0.02987692505121231, 'bleu_score': 0.0, 'exact_match': 512.4573364257812}, 'acceptance_rate': {'mean': 0.40332102816461063}, 'total_time': {'mean': 3.3100228091565573}, 'time_per_token': {'mean': 0.015546111617146469}, 'tokens_per_second': {'mean': 67.84225034713745}}
         ```
 
     - CNN/DM Summarization (One Shot)
