@@ -18,9 +18,10 @@ from torcheval.metrics.metric import Metric
 from data import get_data, LowercaseProcessingFunction
 from utils import ROUGEScoreWrapper
 
-from arguments import process_cli_arguments
+from arguments import BenchmarkArguments, process_cli_arguments
 from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
 from self_speculation.generator_base import (
+    GenerationConfig,
     GenerationResult,
     GenerationStrategy,
     HuggingfaceLlamaGenerator,
@@ -131,18 +132,20 @@ class EvaluationMetrics:
         )
 
 
-def main(args=None):
+def setup(benchmark_arguments: BenchmarkArguments):
     torch.distributed.init_process_group(
         backend="cpu:gloo,cuda:nccl", timeout=datetime.timedelta(hours=48)
     )
     rank = int(os.environ["LOCAL_RANK"])
-    benchmark_arguments, generation_config = process_cli_arguments()
+
     random.seed(benchmark_arguments.seed)
     torch.manual_seed(benchmark_arguments.seed)
     if rank != 0:
         # only run on rank 0, we don't support parallel inference yet
         return
 
+
+def load_model_and_tokenizer(benchmark_arguments: BenchmarkArguments):
     local_model_path: str = benchmark_arguments.model_path
 
     # initialize model
@@ -159,6 +162,15 @@ def main(args=None):
     model.half()
     model.eval()
 
+    return model, tokenizer
+
+
+def benchmark(
+        model: torch.nn.Module, 
+        tokenizer: transformers.PreTrainedTokenizerBase, 
+        benchmark_arguments: BenchmarkArguments, 
+        generation_config: GenerationConfig
+    ):
     if generation_config.generation_strategy == "autoregressive":
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
@@ -193,6 +205,14 @@ def main(args=None):
         metrics.update(example, response)
 
     metric_result = metrics.compute()
+
+    return metric_result
+
+
+def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig):
+    setup(benchmark_arguments)
+    model, tokenizer = load_model_and_tokenizer(benchmark_arguments)
+    metric_result = benchmark(model, tokenizer, benchmark_arguments, generation_config)
     print(metric_result)
 
     # TODO: write to file
@@ -203,4 +223,5 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    main()
+    benchmark_arguments, generation_config = process_cli_arguments()
+    main(benchmark_arguments, generation_config)

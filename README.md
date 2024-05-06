@@ -208,3 +208,21 @@ Result:
 ```
 {'predicted_text': {'rouge-l': 0.16813838481903076, 'rouge-1': 0.2398979812860489, 'rouge-2': 0.07607144117355347, 'rouge-3': 0.03642928972840309, 'bleu_score': 0.0, 'exact_match': 250.60000610351562}, 'acceptance_rate': {'mean': 0.019020007958170028}, 'total_time': {'mean': 2.282204785346985}, 'time_per_token': {'mean': 0.07131889954209328}, 'tokens_per_second': {'mean': 14.112926120758056}}
 ```
+
+## Sweep
+- Llama 7B continual:
+    - HumanEval
+    ```
+    torchrun sweep.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+        --data_path dummy \
+        --data_format human_eval \
+        --generation_strategy self_speculative \
+        --num_speculations 6 \
+        --exit_layer 4 \
+        --num_samples 10 \
+        --manifold_output_dir ./logs
+    ```
+    Result:
+    ```
+    
+    ```
