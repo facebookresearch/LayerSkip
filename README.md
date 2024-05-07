@@ -63,12 +63,13 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
             --data_path dummy \
             --data_format cnn_dm_lm \
-            --num_samples 100 \
-            --manifold_output_dir ./logs
+            --num_samples 10 \
+            --manifold_output_dir ./logs \
+            --sample True
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.14529871940612793, 'rouge-1': 0.30939552187919617, 'rouge-2': 0.06856848299503326, 'rouge-3': 0.019139332696795464, 'bleu_score': 0.0, 'exact_match': 2648.42431640625}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 10.896040379399}, 'time_per_token': {'mean': 0.025808077738291087}, 'tokens_per_second': {'mean': 38.756186706851224}}
+        {'predicted_text': {'rouge-l': 0.13606208562850952, 'rouge-1': 0.28882747888565063, 'rouge-2': 0.058838460594415665, 'rouge-3': 0.013353409245610237, 'bleu_score': 0.0, 'exact_match': 2353.5556640625}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 11.730884949366251}, 'time_per_token': {'mean': 0.0258632300214635}, 'tokens_per_second': {'mean': 38.695508321126304}}
         ```
 
         SS:
@@ -76,15 +77,21 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
             --data_path dummy \
             --data_format cnn_dm_lm \
-            --num_samples 100 \
+            --num_samples 10 \
             --generation_strategy self_speculative \
             --num_speculations 6 \
             --exit_layer 8 \
-            --manifold_output_dir ./logs
+            --manifold_output_dir ./logs \
+            --sample True
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.14605551958084106, 'rouge-1': 0.24131913483142853, 'rouge-2': 0.048992596566677094, 'rouge-3': 0.018053824082016945, 'bleu_score': 0.0, 'exact_match': 2646.3798828125}, 'acceptance_rate': {'mean': 0.6698643353581428}, 'total_time': {'mean': 6.796451380252838}, 'time_per_token': {'mean': 0.013813270982354879}, 'tokens_per_second': {'mean': 75.60851264953614}}
+        {'predicted_text': {'rouge-l': 0.12094669044017792, 'rouge-1': 0.24943789839744568, 'rouge-2': 0.05234846472740173, 'rouge-3': 0.014098376035690308, 'bleu_score': 0.0, 'exact_match': 2470.89990234375}, 'acceptance_rate': {'mean': 0.4316044136881828}, 'total_time': {'mean': 7.655922102928161}, 'time_per_token': {'mean': 0.021372959669679403}, 'tokens_per_second': {'mean': 50.7227668762207}}
+        ```
+
+        Result without sampling:
+        ```
+        {'predicted_text': {'rouge-l': 0.14436019957065582, 'rouge-1': 0.2590729892253876, 'rouge-2': 0.05273960903286934, 'rouge-3': 0.01946089044213295, 'bleu_score': 0.0, 'exact_match': 2361.5}, 'acceptance_rate': {'mean': 0.6267683625221252}, 'total_time': {'mean': 7.255008578300476}, 'time_per_token': {'mean': 0.01519692810252309}, 'tokens_per_second': {'mean': 70.07715606689453}}
         ```
     
     - HumanEval

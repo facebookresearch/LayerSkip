@@ -159,6 +159,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 if rand[0, i] < min(1, verified_probabilities[i, draft_output_ids[0, i]].item() / draft_probabilities[i][0, draft_output_ids[0, i]].item()):
                     number_of_matches += 1
                 else:
+                    verified_tokens[0][number_of_matches] = torch.multinomial(max_fn((verified_probabilities[i, :] - draft_probabilities[i])), num_samples=1).item()
                     break
 
         # accept the `number_of_matches` tokens from the draft with one more from the main model
