@@ -15,12 +15,24 @@ pip install -r requirements.txt
 ```
 
 ## Run
+AR:
 ```
 torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
     --data_path dummy \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
     --manifold_output_dir dummy
+```
+
+SS:
+```
+torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+    --data_path dummy \
+    --data_format cnn_dm_summarization \
+    --num_samples 100 \
+    --manifold_output_dir dummy \
+    --num_speculations 6 \
+    --exit_layer 8
 ```
 
 ## Evaluate

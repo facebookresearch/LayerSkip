@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import torch
 
@@ -21,6 +21,7 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
         input_ids: List[int],
         eos_token_id: int,
         generation_config: GenerationConfig,
+        streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationStrategyResult:
         """Variant of `generate` with inputs/outputs formatted as token_ids."""
         past_key_values = None
@@ -45,6 +46,8 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
             logits = model_output.logits
             past_key_values = model_output.past_key_values
             next_token, _ = decode_next_token(logits=logits, token_idx=-1, sample=generation_config.sample, temperature=generation_config.temperature, top_k=generation_config.top_k, top_p=generation_config.top_p)
+            if streamer:
+                streamer.put(next_token)
             next_token = next_token.item()
             if next_token == eos_token_id:
                 break

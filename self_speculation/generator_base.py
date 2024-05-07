@@ -29,7 +29,7 @@ class GenerationConfig:
     exit_layer: int = -1
     num_speculations: int = -1
     generation_strategy: str = "autoregressive"
-    sample: bool = True
+    sample: bool = False
     temperature: float = 0.6
     top_k: int = 0
     top_p: float = 0.9
@@ -42,6 +42,7 @@ class GenerationStrategy:
         input_ids: List[int],
         eos_token_id: int,
         generation_config: GenerationConfig,
+        streamer: Optional[transformers.TextStreamer] = None,  
     ) -> GenerationStrategyResult:
         raise NotImplementedError()
 
@@ -62,6 +63,7 @@ class HuggingfaceLlamaGenerator:
         self,
         prompt: str,
         generation_config: GenerationConfig,
+        streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationResult:
         example = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
         with torch.inference_mode():
@@ -71,6 +73,7 @@ class HuggingfaceLlamaGenerator:
                 input_ids=example["input_ids"].tolist()[0],
                 eos_token_id=self.tokenizer.eos_token_id,
                 generation_config=generation_config,
+                streamer=streamer,
             )
             total_time = time.time() - start
         decoded_prediction = self.tokenizer.decode(

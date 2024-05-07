@@ -33,6 +33,7 @@ local_model_path: str = benchmark_arguments.model_path
 tokenizer = transformers.LlamaTokenizer.from_pretrained(
     local_model_path, use_fast=False
 )
+streamer = transformers.TextStreamer(tokenizer)
 config = transformers.LlamaConfig.from_pretrained(local_model_path)
 model = transformers.LlamaForCausalLM.from_pretrained(
     local_model_path,
@@ -58,9 +59,12 @@ generator = HuggingfaceLlamaGenerator(
 )
 
 while True:
-    print("Prompt: ")
+    print("Enter a prompt and then press enter for the model to complete:\n\n")
     response: GenerationResult = generator.generate(
         prompt=input(),
         generation_config=generation_config,
+        streamer=streamer,
     )
-    print(f"Response: {response.decoded_prediction}")
+    streamer.end()
+
+    print("\n\n")

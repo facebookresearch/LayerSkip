@@ -27,6 +27,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         input_ids: List[int],
         eos_token_id: int,
         generation_config: GenerationConfig,
+        streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationStrategyResult:
         past_key_values = None
 
@@ -61,14 +62,18 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 temperature=generation_config.temperature,
                 top_k=generation_config.top_k,
                 top_p=generation_config.top_p,
+                streamer=streamer,
             )
             calls += 1
             total_draft_matches += number_of_matches
             total_generations += num_speculations
+            eos_found = False
             if eos_token_id in output_ids:
                 # break out of loop when we get an EOS token
                 # remove the EOS token id
                 output_ids = output_ids[: output_ids.index(eos_token_id)]
+                eos_found = True
+            if eos_found:
                 break
         return GenerationStrategyResult(
             predicted_tokens=output_ids,
@@ -91,6 +96,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         temperature: Optional[float] = 0.7,
         top_k: Optional[int] = 50,
         top_p: Optional[float] = 0.95,
+        streamer: Optional[transformers.TextStreamer] = None
     ):
         prompt_length: int = input_ids.size(1)
         draft_input_ids = input_ids.clone()
@@ -167,28 +173,10 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         input_ids = verified_tokens[:, number_of_matches : number_of_matches + 1]
         output_ids.extend(draft_output_ids[0, : number_of_matches].tolist())
         output_ids.extend(verified_tokens[0][number_of_matches : number_of_matches + 1].tolist())
-        
-        if False:
-            r = np.random.uniform(size=len(draft_output_ids))
-            filtered_verification_logits = transformers.top_k_top_p_filtering(verification_logits.flatten(0,1) / temperature, top_k=top_k, top_p=top_p).unsqueeze(0)
-            verification_probabilities = torch.nn.functional.softmax(filtered_verification_logits, dim=-1)
 
-            number_of_matches = 0
-            for i in range(len(draft_output_ids)):
-                if r[i] < min(1, verification_probabilities[0, i, draft_output_ids[i]].item() / draft_probabilities[i][0, draft_output_ids[i]].item()):
-                    output_ids.append(draft_output_ids[i])
-                    number_of_matches += 1
-                else:
-                    output_ids.append(torch.multinomial(max_fn((verification_probabilities[0, i, :] - draft_probabilities[i])), num_samples=1).item())
-                    break
-            else:
-                i += 1
-                verified_out = torch.multinomial(verification_probabilities[0, i, :], num_samples=1)
-                output_ids.append(verified_out.item())
-                # accept the `number_of_matches` tokens from the draft with one more from the main model
-                # since we re-use the same cachem the input id should only be the last accepted token TODO check this
-                input_ids = verified_out.unsqueeze(0)
-
+        if streamer:
+            streamer.put(draft_output_ids[0, : number_of_matches])
+            streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1])
 
         # we want the entire output sequence + input sequence
         past_key_values = crop_past_key_values(
