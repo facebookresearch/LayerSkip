@@ -120,8 +120,9 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
 
         # input_ids (1 x T_p) and draft_output_ids (1 x T_d) are concatenated together to make
         # 1 x (T_d  + T_p)
+        draft_output_ids = torch.tensor(draft_output_ids).unsqueeze(0).to(input_ids)
         prefill_token_ids = torch.cat(
-            [input_ids, torch.tensor(draft_output_ids).unsqueeze(0).to(input_ids)],
+            [input_ids, draft_output_ids],
             dim=-1,
         )
 
@@ -146,7 +147,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
 
         # skip verification of the last token as it is a new token predicted from the main model
         verified_tokens = verified_tokens.to(prefill_token_ids)
-        verified = prefill_token_ids[:, prompt_length:] == verified_tokens[:, :-1]
+        verified = draft_output_ids[:, :] == verified_tokens[:, :-1]
 
         # number of matches is the index of the number of tokens we are accepting from the draft
         number_of_matches = ((~(verified)).cumsum(dim=-1) < 1).sum().item()
@@ -154,7 +155,6 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         # accept the `number_of_matches` tokens from the draft with one more from the main model
         # since we re-use the same cachem the input id should only be the last accepted token TODO check this
         input_ids = verified_tokens[:, number_of_matches : number_of_matches + 1]
-        # input_ids = verified_tokens[:, : number_of_matches + 1]
         output_ids.extend(prefill_token_ids[0, prompt_length : prompt_length + number_of_matches].tolist())
         output_ids.extend(verified_tokens[0][number_of_matches : number_of_matches + 1].tolist())
         
@@ -190,5 +190,5 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             output_ids,
             past_key_values,
             number_of_matches,
-            len(draft_output_ids),
+            draft_output_ids.numel(),
         )
