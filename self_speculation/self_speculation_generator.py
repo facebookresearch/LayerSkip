@@ -139,25 +139,25 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         # verification_logits: 1 x T_d x V
         verification_logits = logits[:, prompt_length - 1 :, :]
 
-        if not sample:
-            # verified_tokens: 1 x (T_d)
-            # There is a predicted token for every token in the draft output ids list, however note that the
-            # first tokens (or first N tokens) are coming from the prompt
-            verified_tokens, _ = decode_next_token(logits=verification_logits, sample=False)
+        # verified_tokens: 1 x (T_d)
+        # There is a predicted token for every token in the draft output ids list, however note that the
+        # first tokens (or first N tokens) are coming from the prompt
+        verified_tokens, _ = decode_next_token(logits=verification_logits, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
 
-            # skip verification of the last token as it is a new token predicted from the main model
-            verified_tokens = verified_tokens.to(prefill_token_ids)
-            verified = prefill_token_ids[:, prompt_length:] == verified_tokens[:, :-1]
+        # skip verification of the last token as it is a new token predicted from the main model
+        verified_tokens = verified_tokens.to(prefill_token_ids)
+        verified = prefill_token_ids[:, prompt_length:] == verified_tokens[:, :-1]
 
-            # number of matches is the index of the number of tokens we are accepting from the draft
-            number_of_matches = ((~(verified)).cumsum(dim=-1) < 1).sum().item()
+        # number of matches is the index of the number of tokens we are accepting from the draft
+        number_of_matches = ((~(verified)).cumsum(dim=-1) < 1).sum().item()
 
-            # accept the `number_of_matches` tokens from the draft with one more from the main model
-            # since we re-use the same cachem the input id should only be the last accepted token TODO check this
-            input_ids = verified_tokens[:, number_of_matches : number_of_matches + 1]
-            # input_ids = verified_tokens[:, : number_of_matches + 1]
-            output_ids.extend(verified_tokens[0][: number_of_matches + 1].tolist())
-        else:
+        # accept the `number_of_matches` tokens from the draft with one more from the main model
+        # since we re-use the same cachem the input id should only be the last accepted token TODO check this
+        input_ids = verified_tokens[:, number_of_matches : number_of_matches + 1]
+        # input_ids = verified_tokens[:, : number_of_matches + 1]
+        output_ids.extend(verified_tokens[0][: number_of_matches + 1].tolist())
+        
+        if False:
             r = np.random.uniform(size=len(draft_output_ids))
             filtered_verification_logits = transformers.top_k_top_p_filtering(verification_logits.flatten(0,1) / temperature, top_k=top_k, top_p=top_p).unsqueeze(0)
             verification_probabilities = torch.nn.functional.softmax(filtered_verification_logits, dim=-1)
@@ -172,11 +172,11 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                     break
             else:
                 i += 1
-                verified_out, _ = decode_next_token(logits=verification_logits, token_idx=i, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
+                verified_out = torch.multinomial(verification_probabilities[0, i, :], num_samples=1)
                 output_ids.append(verified_out.item())
                 # accept the `number_of_matches` tokens from the draft with one more from the main model
                 # since we re-use the same cachem the input id should only be the last accepted token TODO check this
-                input_ids = verified_out
+                input_ids = verified_out.unsqueeze(0)
 
 
         # we want the entire output sequence + input sequence

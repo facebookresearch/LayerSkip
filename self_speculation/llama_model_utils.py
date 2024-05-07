@@ -28,9 +28,13 @@ def decode_next_token(
         next_token = logits.argmax(dim=-1)
         return next_token, None
     else:
+        if not token_idx:
+            logits.squeeze_(dim=0)
         filtered_logits = transformers.top_k_top_p_filtering(logits / temperature, top_k=top_k, top_p=top_p)
         probabilities = torch.nn.functional.softmax(filtered_logits, dim=-1)
         next_token = torch.multinomial(probabilities, num_samples=1)
+        if not token_idx:
+            next_token.transpose_(1, 0)
         return next_token, probabilities
 
 
