@@ -143,14 +143,23 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         # verified_tokens: 1 x (T_d)
         # There is a predicted token for every token in the draft output ids list, however note that the
         # first tokens (or first N tokens) are coming from the prompt
-        verified_tokens, _ = decode_next_token(logits=verification_logits, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
+        verified_tokens, verified_probabilities = decode_next_token(logits=verification_logits, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
 
         # skip verification of the last token as it is a new token predicted from the main model
         verified_tokens = verified_tokens.to(prefill_token_ids)
         verified = draft_output_ids[:, :] == verified_tokens[:, :-1]
 
         # number of matches is the index of the number of tokens we are accepting from the draft
-        number_of_matches = ((~(verified)).cumsum(dim=-1) < 1).sum().item()
+        if not sample:
+            number_of_matches = ((~(verified)).cumsum(dim=-1) < 1).sum().item()
+        else:
+            number_of_matches = 0
+            rand = torch.rand_like(draft_output_ids, dtype=torch.float)
+            for i in range(draft_output_ids.numel()):
+                if rand[0, i] < min(1, verified_probabilities[i, draft_output_ids[0, i]].item() / draft_probabilities[i][0, draft_output_ids[0, i]].item()):
+                    number_of_matches += 1
+                else:
+                    break
 
         # accept the `number_of_matches` tokens from the draft with one more from the main model
         # since we re-use the same cachem the input id should only be the last accepted token TODO check this
