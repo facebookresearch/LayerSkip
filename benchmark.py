@@ -202,6 +202,9 @@ def benchmark(
         print(
             f"[Example]: {example.output}\n[Prediction]: {response.decoded_prediction}"
         )
+        if response.num_tokens_generated == 0:
+            print("Skipping empty generation")
+            continue
         metrics.update(example, response)
 
     metric_result = metrics.compute()

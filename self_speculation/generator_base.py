@@ -17,6 +17,7 @@ class GenerationStrategyResult:
 class GenerationResult:
     generation_strategy_result: GenerationStrategyResult
     decoded_prediction: str
+    num_tokens_generated: int
     total_time: float
     time_per_token: float
     tokens_per_second: float
@@ -79,7 +80,8 @@ class HuggingfaceLlamaGenerator:
         return GenerationResult(
             generation_strategy_result=generation_strategy_result,
             decoded_prediction=decoded_prediction,
+            num_tokens_generated=num_tokens_generated,
             total_time=total_time,
-            time_per_token=total_time / num_tokens_generated,
+            time_per_token=total_time / num_tokens_generated if num_tokens_generated > 0 else None,
             tokens_per_second=num_tokens_generated / total_time,
         )
