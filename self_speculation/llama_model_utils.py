@@ -23,14 +23,15 @@ def decode_next_token(
 ) -> torch.Tensor:
     if token_idx:
         logits = logits[:, -1, :]
+
     if not sample:
         next_token = logits.argmax(dim=-1)
+        return next_token, None
     else:
         filtered_logits = transformers.top_k_top_p_filtering(logits / temperature, top_k=top_k, top_p=top_p)
         probabilities = torch.nn.functional.softmax(filtered_logits, dim=-1)
         next_token = torch.multinomial(probabilities, num_samples=1)
-
-    return next_token
+        return next_token, probabilities
 
 
 def crop_past_key_values(
