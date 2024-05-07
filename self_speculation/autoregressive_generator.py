@@ -44,7 +44,7 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
                 )
             logits = model_output.logits
             past_key_values = model_output.past_key_values
-            next_token = decode_next_token(logits=logits, token_idx=-1).item()
+            next_token = decode_next_token(logits=logits, token_idx=-1, sample=generation_config.sample, temperature=generation_config.temperature, top_k=generation_config.top_k, top_p=generation_config.top_p).item()
             if next_token == eos_token_id:
                 break
             output_ids.append(next_token)

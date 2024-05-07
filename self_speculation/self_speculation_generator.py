@@ -54,6 +54,10 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 exit_layer=generation_config.exit_layer,
                 eos_token_id=eos_token_id,
                 calls=calls,
+                sample=generation_config.sample,
+                temperature=generation_config.temperature,
+                top_k=generation_config.top_k,
+                top_p=generation_config.top_p,
             )
             calls += 1
             total_draft_matches += number_of_matches
@@ -80,6 +84,10 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         eos_token_id: int,
         calls: int,
         exit_layer: int,
+        sample: Optional[bool] = False,
+        temperature: Optional[float] = 0.7,
+        top_k: Optional[int] = 50,
+        top_p: Optional[float] = 0.95,
     ):
         prompt_length: int = input_ids.size(1)
         draft_input_ids = input_ids.clone()
@@ -95,7 +103,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             )
             past_key_values = draft_result.past_key_values
             exit_query_cache = draft_result.exit_query_cache
-            draft_next_token = decode_next_token(logits=draft_result.logits, token_idx=-1).item()
+            draft_next_token = decode_next_token(logits=draft_result.logits, token_idx=-1, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p).item()
             draft_output_ids.append(draft_next_token)
             draft_input_ids = torch.tensor([[draft_next_token]]).to(draft_input_ids)
             if draft_next_token == eos_token_id:
@@ -126,7 +134,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         # verified_tokens: 1 x (T_d)
         # There is a predicted token for every token in the draft output ids list, however note that the
         # first tokens (or first N tokens) are coming from the prompt
-        verified_tokens = decode_next_token(logits=verification_logits)
+        verified_tokens = decode_next_token(logits=verification_logits, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
 
         # skip verification of the last token as it is a new token predicted from the main model
         verified_tokens = verified_tokens.to(prefill_token_ids)
