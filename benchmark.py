@@ -204,6 +204,7 @@ def benchmark(
         )
         if response.num_tokens_generated == 0:
             print("Skipping empty generation")
+            # TBD: print stats of emprty generations
             continue
         metrics.update(example, response)
 
