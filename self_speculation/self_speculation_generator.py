@@ -155,7 +155,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         # accept the `number_of_matches` tokens from the draft with one more from the main model
         # since we re-use the same cachem the input id should only be the last accepted token TODO check this
         input_ids = verified_tokens[:, number_of_matches : number_of_matches + 1]
-        output_ids.extend(prefill_token_ids[0, prompt_length : prompt_length + number_of_matches].tolist())
+        output_ids.extend(draft_output_ids[0, : number_of_matches].tolist())
         output_ids.extend(verified_tokens[0][number_of_matches : number_of_matches + 1].tolist())
         
         if False:
