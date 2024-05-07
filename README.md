@@ -37,7 +37,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.15924297273159027, 'rouge-1': 0.2301056683063507, 'rouge-2': 0.07174421846866608, 'rouge-3': 0.03521019592881203, 'bleu_score': 0.0, 'exact_match': 251.8300018310547}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 0.9018121194839478}, 'time_per_token': {'mean': 0.02818162873387337}, 'tokens_per_second': {'mean': 35.90497396469116}}
+        {'predicted_text': {'rouge-l': 0.1283082515001297, 'rouge-1': 0.18510770797729492, 'rouge-2': 0.08633019775152206, 'rouge-3': 0.05044793710112572, 'bleu_score': 0.0, 'exact_match': 1740.0699462890625}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 12.617329008579254}, 'time_per_token': {'mean': 0.025650737695395946}, 'tokens_per_second': {'mean': 39.04662847518921}}
         ```
 
 
@@ -54,7 +54,7 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.15924297273159027, 'rouge-1': 0.22984926402568817, 'rouge-2': 0.07174421846866608, 'rouge-3': 0.03521019592881203, 'bleu_score': 0.0, 'exact_match': 251.83999633789062}, 'acceptance_rate': {'mean': 0.6541042917966843}, 'total_time': {'mean': 0.5943978071212769}, 'time_per_token': {'mean': 0.018574931472539902}, 'tokens_per_second': {'mean': 59.77584112167359}}
+        {'predicted_text': {'rouge-l': 0.1364927887916565, 'rouge-1': 0.19389228522777557, 'rouge-2': 0.09072532504796982, 'rouge-3': 0.054363008588552475, 'bleu_score': 0.0, 'exact_match': 1680.0799560546875}, 'acceptance_rate': {'mean': 0.7945407949388027}, 'total_time': {'mean': 6.033521366119385}, 'time_per_token': {'mean': 0.013116696625947952}, 'tokens_per_second': {'mean': 80.12186950683594}}
         ```
 
     - CNN/DM Language Modeling
@@ -88,6 +88,27 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         ```
         {'predicted_text': {'rouge-l': 0.12094669044017792, 'rouge-1': 0.24943789839744568, 'rouge-2': 0.05234846472740173, 'rouge-3': 0.014098376035690308, 'bleu_score': 0.0, 'exact_match': 2470.89990234375}, 'acceptance_rate': {'mean': 0.4316044136881828}, 'total_time': {'mean': 7.655922102928161}, 'time_per_token': {'mean': 0.021372959669679403}, 'tokens_per_second': {'mean': 50.7227668762207}}
         ```
+        Result `--temperature 0.6` (instead of 0.7):
+        ```
+        {'predicted_text': {'rouge-l': 0.145431250333786, 'rouge-1': 0.29284167289733887, 'rouge-2': 0.0636659488081932, 'rouge-3': 0.017067933455109596, 'bleu_score': 0.0, 'exact_match': 2270.800048828125}, 'acceptance_rate': {'mean': 0.4250859707593918}, 'total_time': {'mean': 9.79649715423584}, 'time_per_token': {'mean': 0.0218407379463315}, 'tokens_per_second': {'mean': 49.08753547668457}}
+        ```
+        Result `--temperature 0.6 --top_p 0.9`:
+        ```
+        {'predicted_text': {'rouge-l': 0.13443264365196228, 'rouge-1': 0.27407515048980713, 'rouge-2': 0.05543376877903938, 'rouge-3': 0.013210969977080822, 'bleu_score': 0.0, 'exact_match': 2435.300048828125}, 'acceptance_rate': {'mean': 0.45695279240608216}, 'total_time': {'mean': 9.832695627212525}, 'time_per_token': {'mean': 0.020543566439300776}, 'tokens_per_second': {'mean': 51.509527587890624}}
+        ```
+        Result `--temperature 0.6 --top_p 0.9 --top_k 0`:
+        ```
+        {'predicted_text': {'rouge-l': 0.13951972126960754, 'rouge-1': 0.2510159909725189, 'rouge-2': 0.05056632682681084, 'rouge-3': 0.01751687191426754, 'bleu_score': 0.0, 'exact_match': 2251.199951171875}, 'acceptance_rate': {'mean': 0.5276747912168502}, 'total_time': {'mean': 7.721955919265747}, 'time_per_token': {'mean': 0.017618346121162178}, 'tokens_per_second': {'mean': 58.09655418395996}}
+        ```
+        Result `--temperature 0.7 --top_p 0.9 --top_k 0`:
+        ```
+        {'predicted_text': {'rouge-l': 0.1246955543756485, 'rouge-1': 0.2585299015045166, 'rouge-2': 0.049484096467494965, 'rouge-3': 0.012913130223751068, 'bleu_score': 0.0, 'exact_match': 2424.0}, 'acceptance_rate': {'mean': 0.3456948846578598}, 'total_time': {'mean': 10.56712555885315}, 'time_per_token': {'mean': 0.02428342290222645}, 'tokens_per_second': {'mean': 43.264376640319824}}
+        ```
+        Result `--temperature 0.7 --top_p 0.95 --top_k 0`:
+        ```
+        {'predicted_text': {'rouge-l': 0.13389281928539276, 'rouge-1': 0.27726322412490845, 'rouge-2': 0.05858474224805832, 'rouge-3': 0.016710694879293442, 'bleu_score': 0.0, 'exact_match': 2233.0}, 'acceptance_rate': {'mean': 0.35663639903068545}, 'total_time': {'mean': 9.655048847198486}, 'time_per_token': {'mean': 0.023945740424096584}, 'tokens_per_second': {'mean': 44.228966522216794}}
+        ```
+
 
         Result without sampling:
         ```
@@ -100,11 +121,12 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
             --data_path dummy \
             --data_format human_eval \
-            --manifold_output_dir ./logs
+            --manifold_output_dir ./logs \
+            --sample True
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.13615505397319794, 'rouge-1': 0.15974164009094238, 'rouge-2': 0.05530855059623718, 'rouge-3': 0.029869550839066505, 'bleu_score': 0.0, 'exact_match': 513.0487670898438}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 5.588762165569678}, 'time_per_token': {'mean': 0.025083595273516526}, 'tokens_per_second': {'mean': 39.88735136171667}}
+        {'predicted_text': {'rouge-l': 0.1628463715314865, 'rouge-1': 0.19154858589172363, 'rouge-2': 0.0794435441493988, 'rouge-3': 0.044659942388534546, 'bleu_score': 0.0, 'exact_match': 739.768310546875}, 'acceptance_rate': {'mean': -1.0}, 'total_time': {'mean': 7.987530955454198}, 'time_per_token': {'mean': 0.025473948045656447}, 'tokens_per_second': {'mean': 39.27038741693264}}
         ```
 
         SS:
@@ -114,12 +136,17 @@ torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_
             --data_format human_eval \
             --generation_strategy self_speculative \
             --num_speculations 6 \
-            --exit_layer 4 \
-            --manifold_output_dir ./logs
+            --exit_layer 10 \
+            --manifold_output_dir ./logs \
+            --sample True
         ```
         Result:
         ```
-        {'predicted_text': {'rouge-l': 0.13653630018234253, 'rouge-1': 0.16005906462669373, 'rouge-2': 0.05534951388835907, 'rouge-3': 0.02987692505121231, 'bleu_score': 0.0, 'exact_match': 512.4573364257812}, 'acceptance_rate': {'mean': 0.40332102816461063}, 'total_time': {'mean': 3.3100228091565573}, 'time_per_token': {'mean': 0.015546111617146469}, 'tokens_per_second': {'mean': 67.84225034713745}}
+        {'predicted_text': {'rouge-l': 0.15249398350715637, 'rouge-1': 0.17897377908229828, 'rouge-2': 0.06284470856189728, 'rouge-3': 0.033304233103990555, 'bleu_score': 0.0, 'exact_match': 771.9573364257812}, 'acceptance_rate': {'mean': 0.5554095253166629}, 'total_time': {'mean': 5.63480834990013}, 'time_per_token': {'mean': 0.019379779554494634}, 'tokens_per_second': {'mean': 54.485635594623844}}
+        ```
+        Result `--temperature 0.6 --top_p 0.9 --top_k 0`:
+        ```
+
         ```
 
     - CNN/DM Summarization (One Shot)
@@ -228,7 +255,25 @@ Result:
         --num_speculations 6 \
         --exit_layer 4 \
         --num_samples 10 \
-        --manifold_output_dir ./logs
+        --manifold_output_dir ./logs \
+        --sample True
+    ```
+    Result:
+    ```
+    
+    ```
+
+    - CNN/DM Language Modeling
+    ```
+    torchrun sweep.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+        --data_path dummy \
+        --data_format cnn_dm_lm \
+        --generation_strategy self_speculative \
+        --num_speculations 6 \
+        --exit_layer 4 \
+        --num_samples 10 \
+        --manifold_output_dir ./logs \
+        --sample True
     ```
     Result:
     ```
