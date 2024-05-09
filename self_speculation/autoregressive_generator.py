@@ -21,6 +21,7 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
         input_ids: List[int],
         eos_token_id: int,
         generation_config: GenerationConfig,
+        logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
         streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationStrategyResult:
         """Variant of `generate` with inputs/outputs formatted as token_ids."""
@@ -44,6 +45,8 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
                     input_ids=input_ids, past_key_values=past_key_values
                 )
             logits = model_output.logits
+            if logits_processors:
+                logits = logits_processors(input_ids, logits)
             past_key_values = model_output.past_key_values
             next_token, _ = decode_next_token(logits=logits, token_idx=-1, sample=generation_config.sample, temperature=generation_config.temperature, top_k=generation_config.top_k, top_p=generation_config.top_p)
             if streamer:

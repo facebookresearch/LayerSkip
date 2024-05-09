@@ -27,6 +27,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         input_ids: List[int],
         eos_token_id: int,
         generation_config: GenerationConfig,
+        logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
         streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationStrategyResult:
         past_key_values = None
@@ -62,6 +63,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 temperature=generation_config.temperature,
                 top_k=generation_config.top_k,
                 top_p=generation_config.top_p,
+                logits_processors=logits_processors,
                 streamer=streamer,
             )
             calls += 1
@@ -96,6 +98,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         temperature: Optional[float] = 0.7,
         top_k: Optional[int] = 50,
         top_p: Optional[float] = 0.95,
+        logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
         streamer: Optional[transformers.TextStreamer] = None
     ):
         prompt_length: int = input_ids.size(1)
@@ -114,7 +117,10 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             )
             past_key_values = draft_result.past_key_values
             exit_query_cache = draft_result.exit_query_cache
-            draft_next_token, draft_next_prob = decode_next_token(logits=draft_result.logits, token_idx=-1, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
+            draft_logits = draft_result.logits
+            if logits_processors:
+                draft_logits = logits_processors(draft_input_ids, draft_logits)
+            draft_next_token, draft_next_prob = decode_next_token(logits=draft_logits, token_idx=-1, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
             draft_next_token = draft_next_token.item()
             draft_output_ids.append(draft_next_token)
             if sample:
@@ -141,6 +147,8 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             exit_query_cache,
         )
         logits = verify_results.logits
+        if logits_processors:
+            logits = logits_processors(prefill_token_ids, logits)
         past_key_values = verify_results.past_key_values
         # only select the logits relevant to what the draft has outputted.
         # verification_logits: 1 x T_d x V

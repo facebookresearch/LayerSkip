@@ -33,6 +33,7 @@ class GenerationConfig:
     temperature: float = 0.6
     top_k: int = 0
     top_p: float = 0.9
+    no_repeat_ngram_size: int = None
 
 
 class GenerationStrategy:
@@ -42,6 +43,7 @@ class GenerationStrategy:
         input_ids: List[int],
         eos_token_id: int,
         generation_config: GenerationConfig,
+        logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
         streamer: Optional[transformers.TextStreamer] = None,  
     ) -> GenerationStrategyResult:
         raise NotImplementedError()
@@ -59,6 +61,16 @@ class HuggingfaceLlamaGenerator:
         self.model = model
         self.generation_strategy = generation_strategy
 
+    def create_logits_processors(
+            self,
+            generation_config: GenerationConfig,
+    ) -> transformers.generation.logits_process.LogitsProcessorList:
+        logits_processors: transformers.generation.logits_process.LogitsProcessorList = transformers.generation.logits_process.LogitsProcessorList()
+        if generation_config.no_repeat_ngram_size:
+            logits_processors.append(transformers.generation.logits_process.NoRepeatNGramLogitsProcessor(generation_config.no_repeat_ngram_size))
+
+        return logits_processors
+
     def generate(
         self,
         prompt: str,
@@ -66,6 +78,7 @@ class HuggingfaceLlamaGenerator:
         streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationResult:
         example = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
+        logits_processors = self.create_logits_processors(generation_config=generation_config)
         with torch.inference_mode():
             start = time.time()
             generation_strategy_result = self.generation_strategy.generate_token_ids(
@@ -73,6 +86,7 @@ class HuggingfaceLlamaGenerator:
                 input_ids=example["input_ids"].tolist()[0],
                 eos_token_id=self.tokenizer.eos_token_id,
                 generation_config=generation_config,
+                logits_processors=logits_processors,
                 streamer=streamer,
             )
             total_time = time.time() - start
