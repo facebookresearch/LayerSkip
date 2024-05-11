@@ -1,5 +1,6 @@
 import datetime
 import random
+import sys
 import torch
 import transformers
 import os
@@ -59,9 +60,11 @@ generator = HuggingfaceLlamaGenerator(
 )
 
 while True:
-    print("Enter a prompt and then press enter for the model to complete:\n\n")
+    print("Enter a prompt and then press ctrl+d twice for the model to complete:")
+    print("======================================================================")
+    print()
     response: GenerationResult = generator.generate(
-        prompt=input(),
+        prompt=sys.stdin.read(),
         generation_config=generation_config,
         streamer=streamer,
     )
