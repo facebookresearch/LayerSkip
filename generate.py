@@ -1,7 +1,9 @@
+import colorama
 import datetime
 import random
 import sys
 import torch
+import traceback
 import transformers
 import os
 
@@ -60,14 +62,26 @@ generator = HuggingfaceLlamaGenerator(
 )
 
 while True:
+    print()
     print("Enter a prompt and then press ctrl+d twice for the model to complete:")
     print("======================================================================")
     print()
-    response: GenerationResult = generator.generate(
-        prompt=sys.stdin.read(),
-        generation_config=generation_config,
-        streamer=streamer,
-    )
+
+    prompt=sys.stdin.read()
+    print(colorama.Fore.GREEN, end=" ")
+
+    try:
+        response: GenerationResult = generator.generate(
+            prompt=prompt,
+            generation_config=generation_config,
+            streamer=streamer,
+        )
+    except:
+        print(colorama.Style.RESET_ALL)
+        traceback.print_exc()
+        raise 
+
     streamer.end()
 
-    print("\n\n")
+    print(colorama.Style.RESET_ALL)
+    print()
