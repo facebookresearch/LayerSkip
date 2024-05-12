@@ -2,6 +2,7 @@ import colorama
 import datetime
 import random
 import sys
+import time
 import torch
 import traceback
 import transformers
@@ -22,8 +23,7 @@ torch.distributed.init_process_group(
 )
 rank = int(os.environ["LOCAL_RANK"])
 benchmark_arguments, generation_config = process_cli_arguments()
-# TODO: make max_steps an arg with default value
-generation_config.max_steps = 4096
+
 random.seed(benchmark_arguments.seed)
 torch.manual_seed(benchmark_arguments.seed)
 if rank != 0:
@@ -70,6 +70,7 @@ while True:
     prompt=sys.stdin.read()
     print(colorama.Fore.GREEN, end=" ")
 
+    start = time.time()
     try:
         response: GenerationResult = generator.generate(
             prompt=prompt,
@@ -79,9 +80,18 @@ while True:
     except:
         print(colorama.Style.RESET_ALL)
         traceback.print_exc()
-        raise 
+        raise
+    num_tokens = response.num_tokens_generated
+    total_time = time.time() - start
 
     streamer.end()
 
     print(colorama.Style.RESET_ALL)
+    print()
+    print(f"\tTime taken: {total_time :.3f}s")
+    print(f"\tNumber of tokens: {num_tokens}")
+    print(f"\tTime per token: {total_time / num_tokens : .3f}s")
+    print(f"\tTokens per second: {num_tokens / total_time :.3f}")
+    if generation_config.generation_strategy == "self_speculative":
+        print(f"\tAcceptance Rate: {response.generation_strategy_result.acceptance_rate:.2%}")
     print()
