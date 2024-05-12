@@ -29,7 +29,7 @@ class GenerationConfig:
     exit_layer: int = -1
     num_speculations: int = -1
     generation_strategy: str = "autoregressive"
-    sample: bool = False
+    sample: bool = True
     temperature: float = 0.6
     top_k: int = 0
     top_p: float = 0.9
