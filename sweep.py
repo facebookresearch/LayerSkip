@@ -15,8 +15,8 @@ def sweep(benchmark_arguments: BenchmarkArguments, generation_config: Generation
     results: List[Dict] = []
     setup(benchmark_arguments)
     model, tokenizer = load_model_and_tokenizer(benchmark_arguments)
-    for exit_layer in range(4, 20, 10):
-        for num_speculations in range(4, 12, 8):
+    for exit_layer in range(4, len(model.model.layers), 2):
+        for num_speculations in range(4, 12, 2):
             generation_config.exit_layer = exit_layer
             generation_config.num_speculations = num_speculations
 
