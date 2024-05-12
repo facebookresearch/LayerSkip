@@ -15,23 +15,53 @@ pip install -r requirements.txt
 ```
 
 ## Run
+```
+LLAMA2_7B=/fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/
+
+LLAMA2_13B=/fsx-atom/melhoushi/xldumps/continual_13Bv2_32_gpus_continut_64_gpus/continual_13Bv2_32_gpus_continut_64_gpus_run000/checkpoints/checkpoint_0050000_consolidated_hf/
+```
+
 AR:
 ```
-torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+torchrun generate.py --model_path ${LLAMA2_13B} \
     --data_path dummy \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
-    --manifold_output_dir dummy
+    --sample True \
+    --manifold_output_dir dummy \
+    --max_steps 512
+
+torchrun generate.py --model_path ${LLAMA2_7B} \
+    --data_path dummy \
+    --data_format cnn_dm_summarization \
+    --num_samples 100 \
+    --sample True \
+    --manifold_output_dir dummy \
+    --max_steps 512
 ```
 
 SS:
 ```
-torchrun generate.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+torchrun generate.py --model_path ${LLAMA2_13B} \
     --data_path dummy \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
+    --sample True \
     --manifold_output_dir dummy \
-    --num_speculations 6 \
+    --max_steps 512 \
+    --generation_strategy self_speculative \
+    --num_speculations 4 \
+    --exit_layer 6
+
+torchrun generate.py --model_path ${LLAMA2_7B} \
+    --data_path dummy \
+    --data_format cnn_dm_summarization \
+    --num_samples 100 \
+    --sample True \
+    --manifold_output_dir dummy \
+    --max_steps 512 \
+    --generation_strategy self_speculative \
+    --num_speculations 4 \
     --exit_layer 8
 ```
 
@@ -277,7 +307,7 @@ Result:
 
     - CNN/DM Language Modeling
     ```
-    torchrun sweep.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
+    torchrun sweep.py --model_path ${MODEL} \
         --data_path dummy \
         --data_format cnn_dm_lm \
         --generation_strategy self_speculative \
