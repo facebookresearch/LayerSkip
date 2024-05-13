@@ -16,6 +16,7 @@ from self_speculation.generator_base import (
     HuggingfaceLlamaGenerator,
 )
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
+from self_speculation.speculative_streamer import SpeculativeTextStreamer
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 backend = "nccl" if device == "cuda" else "gloo"
@@ -38,7 +39,7 @@ local_model_path: str = benchmark_arguments.model_path
 tokenizer = transformers.LlamaTokenizer.from_pretrained(
     local_model_path, use_fast=False
 )
-streamer = transformers.TextStreamer(tokenizer)
+streamer = SpeculativeTextStreamer(tokenizer)
 config = transformers.LlamaConfig.from_pretrained(local_model_path)
 model = transformers.LlamaForCausalLM.from_pretrained(
     local_model_path,

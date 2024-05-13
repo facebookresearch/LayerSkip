@@ -139,6 +139,11 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             dim=-1,
         )
 
+        if streamer:
+            print(colorama.Fore.RED, end="")
+            streamer.put(draft_output_ids, escape_new_line=True)
+            print(colorama.Style.RESET_ALL, end="")
+
         # logits: 1 x (T_d  + T_p) x V
         verify_results = forward_remainder(
             model,
@@ -184,6 +189,8 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         output_ids.extend(verified_tokens[0][number_of_matches : number_of_matches + 1].tolist())
 
         if streamer:
+            streamer.delete(len(draft_output_ids[0, :]))
+            print(colorama.Fore.BLACK, end="")
             streamer.put(draft_output_ids[0, : number_of_matches])
             print(colorama.Fore.GREEN, end="")
             streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1])
