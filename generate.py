@@ -17,9 +17,11 @@ from self_speculation.generator_base import (
 )
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+backend = "nccl" if device == "cuda" else "gloo"
 
 torch.distributed.init_process_group(
-    backend="cpu:gloo,cuda:nccl", timeout=datetime.timedelta(hours=48)
+    backend=f"{device}:{backend}", timeout=datetime.timedelta(hours=48)
 )
 rank = int(os.environ["LOCAL_RANK"])
 benchmark_arguments, generation_config = process_cli_arguments()
@@ -43,7 +45,7 @@ model = transformers.LlamaForCausalLM.from_pretrained(
     config=config,
     torch_dtype=torch.float16,
 )
-model.cuda()
+model.to(device)
 model.half()
 model.eval()
 

@@ -33,7 +33,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         past_key_values = None
 
         input_ids_list = input_ids
-        input_ids: torch.Tensor = torch.tensor([input_ids_list]).to("cuda")
+        input_ids: torch.Tensor = torch.tensor([input_ids_list]).to(model.device)
         output_ids: List[int] = []
 
         calls: int = 0
