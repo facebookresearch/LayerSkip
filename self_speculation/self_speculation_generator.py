@@ -1,5 +1,6 @@
 from typing import List, Optional, Tuple
 
+import colorama
 import torch
 
 import transformers
@@ -184,7 +185,9 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
 
         if streamer:
             streamer.put(draft_output_ids[0, : number_of_matches])
+            print(colorama.Fore.GREEN, end="")
             streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1])
+            print(colorama.Style.RESET_ALL, end="")
 
         # we want the entire output sequence + input sequence
         past_key_values = crop_past_key_values(

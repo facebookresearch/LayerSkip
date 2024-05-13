@@ -69,8 +69,9 @@ while True:
     print("======================================================================")
     print()
 
+    print(colorama.Fore.BLUE, end="")
     prompt=sys.stdin.read()
-    print(colorama.Fore.GREEN, end=" ")
+    print(colorama.Style.RESET_ALL, end=" ")
 
     start = time.time()
     try:
