@@ -30,15 +30,15 @@ def main():
         backend="cpu:gloo,cuda:nccl", timeout=datetime.timedelta(hours=48)
     )
     rank = int(os.environ["LOCAL_RANK"])
-    benchmark_arguments, generation_config = process_cli_arguments()
-    random.seed(benchmark_arguments.seed)
-    torch.manual_seed(benchmark_arguments.seed)
+    args = process_cli_arguments()
+    random.seed(args.benchmark_arguments.seed)
+    torch.manual_seed(args.benchmark_arguments.seed)
 
     if rank != 0:
         # only run on rank 0, we don't support parallel inference yet
         return
 
-    local_model_path: str = benchmark_arguments.model_path
+    local_model_path: str = args.benchmark_arguments.model_path
 
     # initialize model
     tokenizer = transformers.LlamaTokenizer.from_pretrained(
@@ -68,23 +68,23 @@ def main():
     )
 
     evaluation_set = get_data(
-        data_path=benchmark_arguments.data_path,
-        random_shuffle=benchmark_arguments.random_shuffle,
-        num_samples=benchmark_arguments.num_samples,
-        data_format=benchmark_arguments.data_format,
+        data_path=args.benchmark_arguments.data_path,
+        random_shuffle=args.benchmark_arguments.random_shuffle,
+        num_samples=args.benchmark_arguments.num_samples,
+        data_format=args.benchmark_arguments.data_format,
     )
 
     errors: int = 0
     for i, example in enumerate(tqdm(evaluation_set)):
         spec_response: GenerationResult = spec_generator.generate(
             prompt=example.input,
-            generation_config=generation_config,
+            generation_config=args.generation_config,
         )
         ar_response: GenerationResult = ar_generator.generate(
             prompt=example.input,
             # generation config to use the full model
             generation_config=GenerationConfig(
-                max_steps=generation_config.max_steps,
+                max_steps=args.generation_config.max_steps,
                 exit_layer=-1,
                 num_speculations=-1,
                 generation_strategy="autoregressive",

@@ -22,6 +22,11 @@ class BenchmarkArguments:
     n_shot: Optional[int] = 0
     model_args: Optional[str] = None
 
+@dataclass
+class Arguments:
+    benchmark_arguments: BenchmarkArguments
+    generation_config: GenerationConfig
+
 
 def process_cli_arguments() -> Tuple[BenchmarkArguments, GenerationConfig]:
     parser = transformers.HfArgumentParser((BenchmarkArguments, GenerationConfig))
@@ -36,7 +41,8 @@ def process_cli_arguments() -> Tuple[BenchmarkArguments, GenerationConfig]:
     else:
         benchmark_arguments.model_args = {}
 
-    return benchmark_arguments, generation_config
+    args: Arguments = Arguments(benchmark_arguments=benchmark_arguments, generation_config=generation_config)
+    return args
 
 
 # Source: https://github.com/EleutherAI/lm-evaluation-harness/blob/a9eaaf46f1e246e5ce090e37f2f99fe1cfe5a919/lm_eval/utils.py

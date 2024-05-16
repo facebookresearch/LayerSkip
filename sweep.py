@@ -37,6 +37,6 @@ def sweep(benchmark_arguments: BenchmarkArguments, generation_config: Generation
     print(tabulate.tabulate(rows, header))
 
 if __name__ == "__main__":
-    benchmark_arguments, generation_config = process_cli_arguments()
+    args = process_cli_arguments()
     os.makedirs("./logs/", exist_ok=True)
-    sweep(benchmark_arguments, generation_config, f"./logs/sweep_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+    sweep(args.benchmark_arguments, args.generation_config, f"./logs/sweep_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")

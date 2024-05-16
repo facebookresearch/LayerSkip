@@ -25,15 +25,15 @@ torch.distributed.init_process_group(
     backend=f"{device}:{backend}", timeout=datetime.timedelta(hours=48)
 )
 rank = int(os.environ["LOCAL_RANK"])
-benchmark_arguments, generation_config = process_cli_arguments()
+args = process_cli_arguments()
 
-random.seed(benchmark_arguments.seed)
-torch.manual_seed(benchmark_arguments.seed)
+random.seed(args.benchmark_arguments.seed)
+torch.manual_seed(args.benchmark_arguments.seed)
 if rank != 0:
     # only run on rank 0, we don't support parallel inference yet
     exit()
 
-local_model_path: str = benchmark_arguments.model_path
+local_model_path: str = args.benchmark_arguments.model_path
 
 # initialize model
 tokenizer = transformers.LlamaTokenizer.from_pretrained(
@@ -45,19 +45,19 @@ model = transformers.LlamaForCausalLM.from_pretrained(
     local_model_path,
     config=config,
     torch_dtype=torch.float16,
-    **benchmark_arguments.model_args,
+    **args.benchmark_arguments.model_args,
 )
 model.to(device)
 model.half()
 model.eval()
 
-if generation_config.generation_strategy == "autoregressive":
+if args.generation_config.generation_strategy == "autoregressive":
     generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
-elif generation_config.generation_strategy == "self_speculative":
+elif args.generation_config.generation_strategy == "self_speculative":
     generation_strategy: GenerationStrategy = SelfSpeculativeGenerationStrategy()
 else:
     raise Exception(
-        f"Unsupported generation strategy: {generation_config.generation_strategy}"
+        f"Unsupported generation strategy: {args.generation_config.generation_strategy}"
     )
 
 # initialize generator
@@ -79,7 +79,7 @@ while True:
     try:
         response: GenerationResult = generator.generate(
             prompt=prompt,
-            generation_config=generation_config,
+            generation_config=args.generation_config,
             streamer=streamer,
         )
     except:
@@ -97,6 +97,6 @@ while True:
     print(f"\tNumber of tokens: {num_tokens}")
     print(f"\tTime per token: {total_time / num_tokens : .3f}s")
     print(f"\tTokens per second: {num_tokens / total_time :.3f}")
-    if generation_config.generation_strategy == "self_speculative":
+    if args.generation_config.generation_strategy == "self_speculative":
         print(f"\tAcceptance Rate: {response.generation_strategy_result.acceptance_rate:.2%}")
     print()

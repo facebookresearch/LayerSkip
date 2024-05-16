@@ -229,5 +229,5 @@ def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationC
 
 
 if __name__ == "__main__":
-    benchmark_arguments, generation_config = process_cli_arguments()
-    main(benchmark_arguments, generation_config)
+    args = process_cli_arguments()
+    main(args.benchmark_arguments, args.generation_config)
