@@ -45,6 +45,7 @@ model = transformers.LlamaForCausalLM.from_pretrained(
     local_model_path,
     config=config,
     torch_dtype=torch.float16,
+    **benchmark_arguments.model_args,
 )
 model.to(device)
 model.half()
