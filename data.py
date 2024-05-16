@@ -27,6 +27,7 @@ def LowercaseProcessingFunction(input: str) -> str:
     return input.lower()
 
 
+# TODO: fix or remove TOPv2 benchmarking
 def prepare_evaluation_examples_chat_format(data_path: str) -> List[EvaluationExample]:
     SINGLE_TURN_TEMPLATE: str = "\n[{role}]\n{message}\n[/{role}]"
     evaluation_data_points = []
@@ -55,7 +56,7 @@ def prepare_evaluation_examples_chat_format(data_path: str) -> List[EvaluationEx
     return evaluation_data_points
 
 
-def prepare_cnn_dm_lm_format(data_path: str) -> List[EvaluationExample]:
+def prepare_cnn_dm_lm_format() -> List[EvaluationExample]:
     evaluation_data_points = []
     for data_point in load_dataset("cnn_dailymail", "3.0.0")["test"]:
         words = data_point["article"].split()
@@ -112,7 +113,7 @@ def prepare_xsum_summarization_format(n_shot: int = 0, seed: int = 42) -> List[E
         )
     return evaluation_data_points
 
-def prepare_human_eval(data_path: str) -> List[EvaluationExample]:
+def prepare_human_eval() -> List[EvaluationExample]:
     evaluation_data_points = []
     for data_point in load_dataset('openai_humaneval', split='test'):
         evaluation_data_points.append(
@@ -124,10 +125,10 @@ def prepare_human_eval(data_path: str) -> List[EvaluationExample]:
     return evaluation_data_points
 
 def get_data(
-    data_path: str,
     random_shuffle: bool,
     num_samples: int,
     data_format: str,
+    data_path: Optional[str] = None,
     n_shot: int = 0,
     seed: int = 42,
 ) -> List[EvaluationExample]:
@@ -138,9 +139,9 @@ def get_data(
     elif data_format == DatasetFormat.XSUM_SUMMARIZATION:
         evaluation_data_points = prepare_xsum_summarization_format(n_shot=n_shot, seed=seed)
     elif data_format == DatasetFormat.CNN_DM_LM:
-        evaluation_data_points = prepare_cnn_dm_lm_format(data_path)
+        evaluation_data_points = prepare_cnn_dm_lm_format()
     elif data_format == DatasetFormat.HUMAN_EVAL:
-        evaluation_data_points = prepare_human_eval(data_path)
+        evaluation_data_points = prepare_human_eval()
     else:
         raise NotImplementedError(f"Unknown dataset format {data_format}")
 

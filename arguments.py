@@ -12,15 +12,15 @@ raw_types = Union[str, float, int, Dict, List, Tuple]
 
 @dataclass
 class BenchmarkArguments:
-    output_dir: str = "./logs"
-    data_path: str
     data_format: str
     model_path: str
+    data_path: Optional[str] = None
     random_shuffle: bool = True
     num_samples: Optional[int] = None
     seed: Optional[int] = 42
     n_shot: Optional[int] = 0
     model_args: Optional[str] = None
+    output_dir: str = "./logs"
 
 @dataclass
 class Arguments:

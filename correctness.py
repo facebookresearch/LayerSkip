@@ -69,10 +69,10 @@ def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationC
     )
 
     evaluation_set = get_data(
-        data_path=benchmark_arguments.data_path,
         random_shuffle=benchmark_arguments.random_shuffle,
         num_samples=benchmark_arguments.num_samples,
         data_format=benchmark_arguments.data_format,
+        data_path=benchmark_arguments.data_path,
     )
 
     errors: int = 0
