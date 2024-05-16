@@ -12,7 +12,7 @@ raw_types = Union[str, float, int, Dict, List, Tuple]
 
 @dataclass
 class BenchmarkArguments:
-    data_format: str
+    dataset: str
     model_path: str
     data_path: Optional[str] = None
     random_shuffle: bool = True

@@ -24,13 +24,13 @@ LLAMA2_13B=/fsx-atom/melhoushi/xldumps/continual_13Bv2_32_gpus_continut_64_gpus/
 AR:
 ```
 torchrun generate.py --model_path ${LLAMA2_13B} \
-    --data_format cnn_dm_summarization \
+    --dataset cnn_dm_summarization \
     --num_samples 100 \
     --sample True \
     --max_steps 512
 
 torchrun generate.py --model_path ${LLAMA2_7B} \
-    --data_format cnn_dm_summarization \
+    --dataset cnn_dm_summarization \
     --num_samples 100 \
     --sample True \
     --max_steps 512
@@ -39,7 +39,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
 SS:
 ```
 torchrun generate.py --model_path ${LLAMA2_13B} \
-    --data_format cnn_dm_summarization \
+    --dataset cnn_dm_summarization \
     --num_samples 100 \
     --sample True \
     --max_steps 512 \
@@ -48,7 +48,7 @@ torchrun generate.py --model_path ${LLAMA2_13B} \
     --exit_layer 6
 
 torchrun generate.py --model_path ${LLAMA2_7B} \
-    --data_format cnn_dm_summarization \
+    --dataset cnn_dm_summarization \
     --num_samples 100 \
     --sample True \
     --max_steps 512 \
@@ -64,7 +64,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         AR:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format cnn_dm_summarization \
+            --dataset cnn_dm_summarization \
             --num_samples 100 \
             --output_dir ./logs
         ```
@@ -77,7 +77,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         SS:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format cnn_dm_summarization \
+            --dataset cnn_dm_summarization \
             --num_samples 100 \
             --generation_strategy self_speculative \
             --num_speculations 6 \
@@ -93,7 +93,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         AR:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format cnn_dm_lm \
+            --dataset cnn_dm_lm \
             --num_samples 10 \
             --output_dir ./logs \
             --sample True
@@ -106,7 +106,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         SS:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format cnn_dm_lm \
+            --dataset cnn_dm_lm \
             --num_samples 10 \
             --generation_strategy self_speculative \
             --num_speculations 6 \
@@ -149,7 +149,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         AR:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format human_eval \
+            --dataset human_eval \
             --output_dir ./logs \
             --sample True
         ```
@@ -161,7 +161,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         SS:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format human_eval \
+            --dataset human_eval \
             --generation_strategy self_speculative \
             --num_speculations 6 \
             --exit_layer 10 \
@@ -181,7 +181,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         AR:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format cnn_dm_summarization \
+            --dataset cnn_dm_summarization \
             --n_shot 1 \
             --num_samples 100 \
             --output_dir ./logs
@@ -194,7 +194,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         SS:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format cnn_dm_summarization \
+            --dataset cnn_dm_summarization \
             --n_shot 1 \
             --num_samples 100 \
             --generation_strategy self_speculative \
@@ -211,7 +211,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         AR:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format xsum_summarization \
+            --dataset xsum_summarization \
             --n_shot 3 \
             --num_samples 100 \
             --output_dir ./logs
@@ -224,7 +224,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         SS:
         ```
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-            --data_format xsum_summarization \
+            --dataset xsum_summarization \
             --n_shot 3 \
             --num_samples 100 \
             --generation_strategy self_speculative \
@@ -242,7 +242,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
 AR:
 ```
 torchrun benchmark.py --model_path /fsx-atom/melhoushi/xldumps/train_llama2_1.5B_sweep_32_gpus/train_llama2_1.5B_sweep_32_gpus_run008/checkpoints/checkpoint_0050000_consolidated_hf/ \
-    --data_format cnn_dm_summarization \
+    --dataset cnn_dm_summarization \
     --num_samples 100 \
     --output_dir ./logs
 ```
@@ -254,7 +254,7 @@ Result:
 SS:
 ```
 torchrun benchmark.py --model_path /fsx-atom/melhoushi/xldumps/train_llama2_1.5B_sweep_32_gpus/train_llama2_1.5B_sweep_32_gpus_run008/checkpoints/checkpoint_0050000_consolidated_hf/ \
-    --data_format cnn_dm_summarization \
+    --dataset cnn_dm_summarization \
     --num_samples 100 \
     --generation_strategy self_speculative \
     --num_speculations 12 \
@@ -271,7 +271,7 @@ Result:
     - HumanEval
     ```
     torchrun sweep.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-        --data_format human_eval \
+        --dataset human_eval \
         --generation_strategy self_speculative \
         --num_speculations 6 \
         --exit_layer 4 \
@@ -287,7 +287,7 @@ Result:
     - CNN/DM Language Modeling
     ```
     torchrun sweep.py --model_path ${MODEL} \
-        --data_format cnn_dm_lm \
+        --dataset cnn_dm_lm \
         --generation_strategy self_speculative \
         --num_speculations 6 \
         --exit_layer 4 \
@@ -306,7 +306,7 @@ Result:
     - HumanEval
     ```
     torchrun correctness.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
-        --data_format human_eval \
+        --dataset human_eval \
         --generation_strategy self_speculative \
         --num_speculations 6 \
         --exit_layer 4 \

@@ -190,7 +190,7 @@ def benchmark(
     evaluation_set = get_data(
         random_shuffle=benchmark_arguments.random_shuffle,
         num_samples=benchmark_arguments.num_samples,
-        data_format=benchmark_arguments.data_format,
+        dataset=benchmark_arguments.dataset,
         n_shot=benchmark_arguments.n_shot,
         seed=benchmark_arguments.seed,
         data_path=benchmark_arguments.data_path,

@@ -127,23 +127,23 @@ def prepare_human_eval() -> List[EvaluationExample]:
 def get_data(
     random_shuffle: bool,
     num_samples: int,
-    data_format: str,
+    dataset: str,
     data_path: Optional[str] = None,
     n_shot: int = 0,
     seed: int = 42,
 ) -> List[EvaluationExample]:
-    if data_format == DatasetFormat.CHAT_FORMAT:
+    if dataset == DatasetFormat.CHAT_FORMAT:
         evaluation_data_points = prepare_evaluation_examples_chat_format(data_path)
-    elif data_format == DatasetFormat.CNN_DM_SUMMARIZATION:
+    elif dataset == DatasetFormat.CNN_DM_SUMMARIZATION:
         evaluation_data_points = prepare_cnn_dm_summarization_format(n_shot=n_shot, seed=seed)
-    elif data_format == DatasetFormat.XSUM_SUMMARIZATION:
+    elif dataset == DatasetFormat.XSUM_SUMMARIZATION:
         evaluation_data_points = prepare_xsum_summarization_format(n_shot=n_shot, seed=seed)
-    elif data_format == DatasetFormat.CNN_DM_LM:
+    elif dataset == DatasetFormat.CNN_DM_LM:
         evaluation_data_points = prepare_cnn_dm_lm_format()
-    elif data_format == DatasetFormat.HUMAN_EVAL:
+    elif dataset == DatasetFormat.HUMAN_EVAL:
         evaluation_data_points = prepare_human_eval()
     else:
-        raise NotImplementedError(f"Unknown dataset format {data_format}")
+        raise NotImplementedError(f"Unknown dataset format {dataset}")
 
     if random_shuffle:
         random.shuffle(evaluation_data_points)
