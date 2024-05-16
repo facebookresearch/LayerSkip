@@ -28,7 +28,7 @@ torchrun generate.py --model_path ${LLAMA2_13B} \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
     --sample True \
-    --manifold_output_dir dummy \
+    --output_dir dummy \
     --max_steps 512
 
 torchrun generate.py --model_path ${LLAMA2_7B} \
@@ -36,7 +36,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
     --sample True \
-    --manifold_output_dir dummy \
+    --output_dir dummy \
     --max_steps 512
 ```
 
@@ -47,7 +47,7 @@ torchrun generate.py --model_path ${LLAMA2_13B} \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
     --sample True \
-    --manifold_output_dir dummy \
+    --output_dir dummy \
     --max_steps 512 \
     --generation_strategy self_speculative \
     --num_speculations 4 \
@@ -58,7 +58,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
     --sample True \
-    --manifold_output_dir dummy \
+    --output_dir dummy \
     --max_steps 512 \
     --generation_strategy self_speculative \
     --num_speculations 4 \
@@ -75,7 +75,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --data_path dummy \
             --data_format cnn_dm_summarization \
             --num_samples 100 \
-            --manifold_output_dir ./logs
+            --output_dir ./logs
         ```
         Result:
         ```
@@ -92,7 +92,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --generation_strategy self_speculative \
             --num_speculations 6 \
             --exit_layer 8 \
-            --manifold_output_dir ./logs
+            --output_dir ./logs
         ```
         Result:
         ```
@@ -106,7 +106,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --data_path dummy \
             --data_format cnn_dm_lm \
             --num_samples 10 \
-            --manifold_output_dir ./logs \
+            --output_dir ./logs \
             --sample True
         ```
         Result:
@@ -123,7 +123,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --generation_strategy self_speculative \
             --num_speculations 6 \
             --exit_layer 8 \
-            --manifold_output_dir ./logs \
+            --output_dir ./logs \
             --sample True
         ```
         Result:
@@ -163,7 +163,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
         torchrun benchmark.py --model_path /fsx-scaling/melhoushi/xldumps/continual_7Bv2_ld_ee_best2/continual_7Bv2_ld_ee_best2_run000/checkpoints/checkpoint_0050000_consolidated_hf/ \
             --data_path dummy \
             --data_format human_eval \
-            --manifold_output_dir ./logs \
+            --output_dir ./logs \
             --sample True
         ```
         Result:
@@ -179,7 +179,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --generation_strategy self_speculative \
             --num_speculations 6 \
             --exit_layer 10 \
-            --manifold_output_dir ./logs \
+            --output_dir ./logs \
             --sample True
         ```
         Result:
@@ -199,7 +199,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --data_format cnn_dm_summarization \
             --n_shot 1 \
             --num_samples 100 \
-            --manifold_output_dir ./logs
+            --output_dir ./logs
         ```
         Result:
         ```
@@ -216,7 +216,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --generation_strategy self_speculative \
             --num_speculations 12 \
             --exit_layer 8 \
-            --manifold_output_dir ./logs
+            --output_dir ./logs
         ```
         Result:
         ```
@@ -231,7 +231,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --data_format xsum_summarization \
             --n_shot 3 \
             --num_samples 100 \
-            --manifold_output_dir ./logs
+            --output_dir ./logs
         ```
         Result:
         ```
@@ -248,7 +248,7 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
             --generation_strategy self_speculative \
             --num_speculations 12 \
             --exit_layer 8 \
-            --manifold_output_dir ./logs
+            --output_dir ./logs
         ```
         Result:
         ```
@@ -263,7 +263,7 @@ torchrun benchmark.py --model_path /fsx-atom/melhoushi/xldumps/train_llama2_1.5B
     --data_path dummy \
     --data_format cnn_dm_summarization \
     --num_samples 100 \
-    --manifold_output_dir ./logs
+    --output_dir ./logs
 ```
 Result:
 ```
@@ -279,7 +279,7 @@ torchrun benchmark.py --model_path /fsx-atom/melhoushi/xldumps/train_llama2_1.5B
     --generation_strategy self_speculative \
     --num_speculations 12 \
     --exit_layer 8 \
-    --manifold_output_dir ./logs
+    --output_dir ./logs
 ```
 Result:
 ```
@@ -297,7 +297,7 @@ Result:
         --num_speculations 6 \
         --exit_layer 4 \
         --num_samples 10 \
-        --manifold_output_dir ./logs \
+        --output_dir ./logs \
         --sample True
     ```
     Result:
@@ -314,7 +314,7 @@ Result:
         --num_speculations 6 \
         --exit_layer 4 \
         --num_samples 10 \
-        --manifold_output_dir ./logs \
+        --output_dir ./logs \
         --sample True
     ```
     Result:
@@ -334,7 +334,7 @@ Result:
         --num_speculations 6 \
         --exit_layer 4 \
         --num_samples 10 \
-        --manifold_output_dir ./logs
+        --output_dir ./logs
     ```
     Result:
     ```

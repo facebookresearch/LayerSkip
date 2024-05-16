@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import random
 from dataclasses import dataclass
@@ -214,20 +215,17 @@ def benchmark(
     return metric_result
 
 
-def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig):
+def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     setup(benchmark_arguments, device=device)
     model, tokenizer = load_model_and_tokenizer(benchmark_arguments, device=device)
     metric_result = benchmark(model, tokenizer, benchmark_arguments, generation_config)
     print(metric_result)
 
-    # TODO: write to file
-    # WorkflowTCRunner.upload_output_to_manifold(
-    #     folder_path=benchmark_arguments.manifold_output_dir,
-    #     output=metric_result,
-    # )
+    with open(output_fname, "w") as f:
+        json.dump(metric_result, f)
 
 
 if __name__ == "__main__":
     args = process_cli_arguments()
-    main(args.benchmark_arguments, args.generation_config)
+    main(args.benchmark_arguments, args.generation_config, f"{args.benchmark_arguments.output_dir}/benchmark_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json")

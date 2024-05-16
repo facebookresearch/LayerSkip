@@ -5,7 +5,7 @@ import os
 import tabulate
 import torch
 
-from arguments import BenchmarkArguments, process_cli_arguments
+from arguments import Arguments, BenchmarkArguments, process_cli_arguments
 from benchmark import benchmark, load_model_and_tokenizer, setup
 from self_speculation.generator_base import (
     GenerationConfig,
@@ -37,6 +37,6 @@ def sweep(benchmark_arguments: BenchmarkArguments, generation_config: Generation
     print(tabulate.tabulate(rows, header))
 
 if __name__ == "__main__":
-    args = process_cli_arguments()
-    os.makedirs("./logs/", exist_ok=True)
-    sweep(args.benchmark_arguments, args.generation_config, f"./logs/sweep_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+    args: Arguments = process_cli_arguments()
+    os.makedirs(args.benchmark_arguments.output_dir, exist_ok=True)
+    sweep(args.benchmark_arguments, args.generation_config, f"{args.benchmark_arguments.output_dir}/sweep_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")

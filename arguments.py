@@ -12,7 +12,7 @@ raw_types = Union[str, float, int, Dict, List, Tuple]
 
 @dataclass
 class BenchmarkArguments:
-    manifold_output_dir: str
+    output_dir: str = "./logs"
     data_path: str
     data_format: str
     model_path: str

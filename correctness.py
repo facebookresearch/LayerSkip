@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import random
 import logging
@@ -7,7 +8,7 @@ import torch
 
 import transformers
 
-from arguments import process_cli_arguments
+from arguments import BenchmarkArguments, process_cli_arguments
 from data import get_data
 from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
 
@@ -25,20 +26,20 @@ from tqdm import tqdm
 log = logging.getLogger(__name__)
 
 
-def main():
+def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
     torch.distributed.init_process_group(
         backend="cpu:gloo,cuda:nccl", timeout=datetime.timedelta(hours=48)
     )
     rank = int(os.environ["LOCAL_RANK"])
-    args = process_cli_arguments()
-    random.seed(args.benchmark_arguments.seed)
-    torch.manual_seed(args.benchmark_arguments.seed)
+    
+    random.seed(benchmark_arguments.seed)
+    torch.manual_seed(benchmark_arguments.seed)
 
     if rank != 0:
         # only run on rank 0, we don't support parallel inference yet
         return
 
-    local_model_path: str = args.benchmark_arguments.model_path
+    local_model_path: str = benchmark_arguments.model_path
 
     # initialize model
     tokenizer = transformers.LlamaTokenizer.from_pretrained(
@@ -68,23 +69,23 @@ def main():
     )
 
     evaluation_set = get_data(
-        data_path=args.benchmark_arguments.data_path,
-        random_shuffle=args.benchmark_arguments.random_shuffle,
-        num_samples=args.benchmark_arguments.num_samples,
-        data_format=args.benchmark_arguments.data_format,
+        data_path=benchmark_arguments.data_path,
+        random_shuffle=benchmark_arguments.random_shuffle,
+        num_samples=benchmark_arguments.num_samples,
+        data_format=benchmark_arguments.data_format,
     )
 
     errors: int = 0
     for i, example in enumerate(tqdm(evaluation_set)):
         spec_response: GenerationResult = spec_generator.generate(
             prompt=example.input,
-            generation_config=args.generation_config,
+            generation_config=generation_config,
         )
         ar_response: GenerationResult = ar_generator.generate(
             prompt=example.input,
             # generation config to use the full model
             generation_config=GenerationConfig(
-                max_steps=args.generation_config.max_steps,
+                max_steps=generation_config.max_steps,
                 exit_layer=-1,
                 num_speculations=-1,
                 generation_strategy="autoregressive",
@@ -100,12 +101,10 @@ def main():
     metric_result = {"errors": errors, "error_pct": errors / len(evaluation_set)}
     print(metric_result)
 
-    # TODO: write output to file
-    # WorkflowTCRunner.upload_output_to_manifold(
-    #     folder_path=benchmark_arguments.manifold_output_dir,
-    #     output=metric_result,
-    # )
+    with open(output_fname, "w") as f:
+        json.dump(metric_result, f)
 
 
 if __name__ == "__main__":
-    main()
+    args = process_cli_arguments()
+    main(args.benchmark_arguments, args.generation_config, f"{args.benchmark_arguments.output_dir}/correctness_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
