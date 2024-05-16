@@ -132,9 +132,10 @@ class EvaluationMetrics:
         )
 
 
-def setup(benchmark_arguments: BenchmarkArguments):
+def setup(benchmark_arguments: BenchmarkArguments, device: str = "cuda"):
+    backend_str = "cpu:gloo" if "cpu" in device else "cuda:nccl,cpu:gloo"
     torch.distributed.init_process_group(
-        backend="cpu:gloo,cuda:nccl", timeout=datetime.timedelta(hours=48)
+        backend=backend_str, timeout=datetime.timedelta(hours=48)
     )
     rank = int(os.environ["LOCAL_RANK"])
 
@@ -145,7 +146,7 @@ def setup(benchmark_arguments: BenchmarkArguments):
         return
 
 
-def load_model_and_tokenizer(benchmark_arguments: BenchmarkArguments):
+def load_model_and_tokenizer(benchmark_arguments: BenchmarkArguments, device: str = "cuda"):
     local_model_path: str = benchmark_arguments.model_path
 
     # initialize model
@@ -158,7 +159,7 @@ def load_model_and_tokenizer(benchmark_arguments: BenchmarkArguments):
         config=config,
         torch_dtype=torch.float16,
     )
-    model.cuda()
+    model.to(device)
     model.half()
     model.eval()
 
@@ -214,8 +215,9 @@ def benchmark(
 
 
 def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig):
-    setup(benchmark_arguments)
-    model, tokenizer = load_model_and_tokenizer(benchmark_arguments)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    setup(benchmark_arguments, device=device)
+    model, tokenizer = load_model_and_tokenizer(benchmark_arguments, device=device)
     metric_result = benchmark(model, tokenizer, benchmark_arguments, generation_config)
     print(metric_result)
 

@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 import tabulate
+import torch
 
 from arguments import BenchmarkArguments, process_cli_arguments
 from benchmark import benchmark, load_model_and_tokenizer, setup
@@ -13,8 +14,9 @@ from self_speculation.generator_base import (
 
 def sweep(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
     results: List[Dict] = []
-    setup(benchmark_arguments)
-    model, tokenizer = load_model_and_tokenizer(benchmark_arguments)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    setup(benchmark_arguments, device=device)
+    model, tokenizer = load_model_and_tokenizer(benchmark_arguments, device=device)
     for exit_layer in range(4, len(model.model.layers), 2):
         for num_speculations in range(4, 12, 2):
             generation_config.exit_layer = exit_layer

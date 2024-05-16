@@ -19,7 +19,7 @@ from self_speculation.self_speculation_generator import SelfSpeculativeGeneratio
 from self_speculation.speculative_streamer import SpeculativeTextStreamer
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-backend = "nccl" if device == "cuda" else "gloo"
+backend = "nccl" if "cuda" in device else "gloo"
 
 torch.distributed.init_process_group(
     backend=f"{device}:{backend}", timeout=datetime.timedelta(hours=48)
