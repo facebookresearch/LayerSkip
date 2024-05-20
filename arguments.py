@@ -9,40 +9,12 @@ from self_speculation.generator_base import (
 
 raw_types = Union[str, float, int, Dict, List, Tuple]
 
-
-@dataclass
-class BenchmarkArguments:
-    dataset: str
-    model_path: str
-    data_path: Optional[str] = None
-    random_shuffle: bool = True
-    num_samples: Optional[int] = None
-    seed: Optional[int] = 42
-    n_shot: Optional[int] = 0
-    model_args: Optional[str] = None
-    output_dir: str = "./logs"
-
 @dataclass
 class Arguments:
-    benchmark_arguments: BenchmarkArguments
-    generation_config: GenerationConfig
-
-
-def process_cli_arguments() -> Tuple[BenchmarkArguments, GenerationConfig]:
-    parser = transformers.HfArgumentParser((BenchmarkArguments, GenerationConfig))
-    (
-        benchmark_arguments,
-        generation_config,
-        _remaining,
-    ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
-
-    if benchmark_arguments.model_args:
-        benchmark_arguments.model_args = simple_parse_args_string(benchmark_arguments.model_args)
-    else:
-        benchmark_arguments.model_args = {}
-
-    args: Arguments = Arguments(benchmark_arguments=benchmark_arguments, generation_config=generation_config)
-    return args
+    model_path: str
+    model_args: Optional[str] = None
+    seed: Optional[int] = 42
+    output_dir: str = "./logs"
 
 
 # Source: https://github.com/EleutherAI/lm-evaluation-harness/blob/a9eaaf46f1e246e5ce090e37f2f99fe1cfe5a919/lm_eval/utils.py

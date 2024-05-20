@@ -24,14 +24,10 @@ LLAMA2_13B=/fsx-atom/melhoushi/xldumps/continual_13Bv2_32_gpus_continut_64_gpus/
 AR:
 ```
 torchrun generate.py --model_path ${LLAMA2_13B} \
-    --dataset cnn_dm_summarization \
-    --num_samples 100 \
     --sample True \
     --max_steps 512
 
 torchrun generate.py --model_path ${LLAMA2_7B} \
-    --dataset cnn_dm_summarization \
-    --num_samples 100 \
     --sample True \
     --max_steps 512
 ```
@@ -39,8 +35,6 @@ torchrun generate.py --model_path ${LLAMA2_7B} \
 SS:
 ```
 torchrun generate.py --model_path ${LLAMA2_13B} \
-    --dataset cnn_dm_summarization \
-    --num_samples 100 \
     --sample True \
     --max_steps 512 \
     --generation_strategy self_speculative \
@@ -48,8 +42,6 @@ torchrun generate.py --model_path ${LLAMA2_13B} \
     --exit_layer 6
 
 torchrun generate.py --model_path ${LLAMA2_7B} \
-    --dataset cnn_dm_summarization \
-    --num_samples 100 \
     --sample True \
     --max_steps 512 \
     --generation_strategy self_speculative \
