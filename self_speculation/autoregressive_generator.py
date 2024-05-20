@@ -27,7 +27,7 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
         """Variant of `generate` with inputs/outputs formatted as token_ids."""
         past_key_values = None
 
-        input_ids: torch.Tensor = torch.tensor([input_ids]).to("cuda")
+        input_ids: torch.Tensor = torch.tensor([input_ids]).to(model.device)
         output_ids: List[int] = []
 
         exit_query_cache = None

@@ -1,8 +1,9 @@
 import datetime
+import json
 import os
 import random
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional, Tuple
 import logging
 
 import torch
@@ -18,7 +19,8 @@ from torcheval.metrics.metric import Metric
 from data import get_data, LowercaseProcessingFunction
 from utils import ROUGEScoreWrapper
 
-from arguments import BenchmarkArguments, process_cli_arguments
+import arguments
+from arguments import Arguments, simple_parse_args_string
 from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
 from self_speculation.generator_base import (
     GenerationConfig,
@@ -31,6 +33,13 @@ from self_speculation.self_speculation_generator import SelfSpeculativeGeneratio
 
 log = logging.getLogger(__name__)
 
+@dataclass
+class BenchmarkArguments:
+    dataset: str
+    data_path: Optional[str] = None
+    random_shuffle: bool = True
+    num_samples: Optional[int] = None
+    n_shot: Optional[int] = 0
 
 @dataclass
 class EvaluationExample:
@@ -132,21 +141,22 @@ class EvaluationMetrics:
         )
 
 
-def setup(benchmark_arguments: BenchmarkArguments):
+def setup(args: Arguments, device: str = "cuda"):
+    backend_str = "cpu:gloo" if "cpu" in device else "cuda:nccl,cpu:gloo"
     torch.distributed.init_process_group(
-        backend="cpu:gloo,cuda:nccl", timeout=datetime.timedelta(hours=48)
+        backend=backend_str, timeout=datetime.timedelta(hours=48)
     )
     rank = int(os.environ["LOCAL_RANK"])
 
-    random.seed(benchmark_arguments.seed)
-    torch.manual_seed(benchmark_arguments.seed)
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
     if rank != 0:
         # only run on rank 0, we don't support parallel inference yet
         return
 
 
-def load_model_and_tokenizer(benchmark_arguments: BenchmarkArguments):
-    local_model_path: str = benchmark_arguments.model_path
+def load_model_and_tokenizer(args: Arguments, device: str = "cuda"):
+    local_model_path: str = args.model_path
 
     # initialize model
     tokenizer = transformers.LlamaTokenizer.from_pretrained(
@@ -158,7 +168,7 @@ def load_model_and_tokenizer(benchmark_arguments: BenchmarkArguments):
         config=config,
         torch_dtype=torch.float16,
     )
-    model.cuda()
+    model.to(device)
     model.half()
     model.eval()
 
@@ -186,12 +196,12 @@ def benchmark(
     )
 
     evaluation_set = get_data(
-        data_path=benchmark_arguments.data_path,
         random_shuffle=benchmark_arguments.random_shuffle,
         num_samples=benchmark_arguments.num_samples,
-        data_format=benchmark_arguments.data_format,
+        dataset=benchmark_arguments.dataset,
         n_shot=benchmark_arguments.n_shot,
-        seed=benchmark_arguments.seed,
+        seed=args.seed,
+        data_path=benchmark_arguments.data_path,
     )
     metrics = EvaluationMetrics.build_metrics()
     for i, example in enumerate(tqdm(evaluation_set)):
@@ -213,19 +223,32 @@ def benchmark(
     return metric_result
 
 
-def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig):
-    setup(benchmark_arguments)
-    model, tokenizer = load_model_and_tokenizer(benchmark_arguments)
+def main(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    setup(args, device=device)
+    model, tokenizer = load_model_and_tokenizer(args, device=device)
     metric_result = benchmark(model, tokenizer, benchmark_arguments, generation_config)
     print(metric_result)
 
-    # TODO: write to file
-    # WorkflowTCRunner.upload_output_to_manifold(
-    #     folder_path=benchmark_arguments.manifold_output_dir,
-    #     output=metric_result,
-    # )
+    with open(output_fname, "w") as f:
+        json.dump(metric_result, f)
 
+def process_cli_arguments() -> Tuple[arguments.Arguments, BenchmarkArguments, GenerationConfig]:
+    parser = transformers.HfArgumentParser((arguments.Arguments, BenchmarkArguments, GenerationConfig))
+    (
+        general_arguments,
+        benchmark_arguments,
+        generation_config,
+        _remaining,
+    ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
+
+    if general_arguments.model_args:
+        general_arguments.model_args = simple_parse_args_string(general_arguments.model_args)
+    else:
+        general_arguments.model_args = {}
+
+    return general_arguments, benchmark_arguments, generation_config
 
 if __name__ == "__main__":
-    benchmark_arguments, generation_config = process_cli_arguments()
-    main(benchmark_arguments, generation_config)
+    args, benchmark_arguments, generation_config = process_cli_arguments()
+    main(args, benchmark_arguments, generation_config, f"{args.output_dir}/benchmark_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json")

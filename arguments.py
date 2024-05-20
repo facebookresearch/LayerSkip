@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import transformers
 
@@ -9,24 +9,40 @@ from self_speculation.generator_base import (
 
 raw_types = Union[str, float, int, Dict, List, Tuple]
 
-
 @dataclass
-class BenchmarkArguments:
-    manifold_output_dir: str
-    data_path: str
-    data_format: str
+class Arguments:
     model_path: str
-    random_shuffle: bool = True
-    num_samples: Optional[int] = None
+    model_args: Optional[str] = None
     seed: Optional[int] = 42
-    n_shot: Optional[int] = 0
+    output_dir: str = "./logs"
 
 
-def process_cli_arguments() -> Tuple[BenchmarkArguments, GenerationConfig]:
-    parser = transformers.HfArgumentParser((BenchmarkArguments, GenerationConfig))
-    (
-        benchmark_arguments,
-        generation_config,
-        _remaining,
-    ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
-    return benchmark_arguments, generation_config
+# Source: https://github.com/EleutherAI/lm-evaluation-harness/blob/a9eaaf46f1e246e5ce090e37f2f99fe1cfe5a919/lm_eval/utils.py
+def simple_parse_args_string(args_string):
+    """
+    Parses something like
+        args1=val1,arg2=val2
+    Into a dictionary
+    """
+    args_string = args_string.strip()
+    if not args_string:
+        return {}
+    arg_list = [arg for arg in args_string.split(",") if arg]
+    args_dict = {
+        k: handle_arg_string(v) for k, v in [arg.split("=") for arg in arg_list]
+    }
+    return args_dict
+
+
+# Source: https://github.com/EleutherAI/lm-evaluation-harness/blob/a9eaaf46f1e246e5ce090e37f2f99fe1cfe5a919/lm_eval/utils.py
+def handle_arg_string(arg):
+    if arg.lower() == "true":
+        return True
+    elif arg.lower() == "false":
+        return False
+    elif arg.isnumeric():
+        return int(arg)
+    try:
+        return float(arg)
+    except ValueError:
+        return arg

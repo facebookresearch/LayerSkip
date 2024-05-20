@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import random
 import logging
@@ -7,7 +8,7 @@ import torch
 
 import transformers
 
-from arguments import process_cli_arguments
+from arguments import BenchmarkArguments, process_cli_arguments
 from data import get_data
 from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
 
@@ -25,12 +26,12 @@ from tqdm import tqdm
 log = logging.getLogger(__name__)
 
 
-def main():
+def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
     torch.distributed.init_process_group(
         backend="cpu:gloo,cuda:nccl", timeout=datetime.timedelta(hours=48)
     )
     rank = int(os.environ["LOCAL_RANK"])
-    benchmark_arguments, generation_config = process_cli_arguments()
+    
     random.seed(benchmark_arguments.seed)
     torch.manual_seed(benchmark_arguments.seed)
 
@@ -68,10 +69,10 @@ def main():
     )
 
     evaluation_set = get_data(
-        data_path=benchmark_arguments.data_path,
         random_shuffle=benchmark_arguments.random_shuffle,
         num_samples=benchmark_arguments.num_samples,
-        data_format=benchmark_arguments.data_format,
+        dataset=benchmark_arguments.dataset,
+        data_path=benchmark_arguments.data_path,
     )
 
     errors: int = 0
@@ -100,12 +101,10 @@ def main():
     metric_result = {"errors": errors, "error_pct": errors / len(evaluation_set)}
     print(metric_result)
 
-    # TODO: write output to file
-    # WorkflowTCRunner.upload_output_to_manifold(
-    #     folder_path=benchmark_arguments.manifold_output_dir,
-    #     output=metric_result,
-    # )
+    with open(output_fname, "w") as f:
+        json.dump(metric_result, f)
 
 
 if __name__ == "__main__":
-    main()
+    args = process_cli_arguments()
+    main(args.benchmark_arguments, args.generation_config, f"{args.benchmark_arguments.output_dir}/correctness_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json")

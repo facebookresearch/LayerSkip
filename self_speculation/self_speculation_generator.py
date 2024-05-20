@@ -140,7 +140,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         )
 
         if streamer:
-            print(colorama.Fore.RED, end="")
+            print(colorama.Fore.LIGHTMAGENTA_EX, end="")
             streamer.put(draft_output_ids, escape_new_line=True)
             print(colorama.Style.RESET_ALL, end="")
 
@@ -190,9 +190,9 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
 
         if streamer:
             streamer.delete(len(draft_output_ids[0, :]))
-            print(colorama.Fore.BLACK, end="")
-            streamer.put(draft_output_ids[0, : number_of_matches])
             print(colorama.Fore.GREEN, end="")
+            streamer.put(draft_output_ids[0, : number_of_matches])
+            print(colorama.Style.RESET_ALL, end="")
             streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1])
             print(colorama.Style.RESET_ALL, end="")
 

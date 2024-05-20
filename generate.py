@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import colorama
 import datetime
 import random
@@ -8,9 +10,10 @@ import traceback
 import transformers
 import os
 
-from arguments import process_cli_arguments
+from arguments import Arguments, simple_parse_args_string
 from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
 from self_speculation.generator_base import (
+    GenerationConfig,
     GenerationResult,
     GenerationStrategy,
     HuggingfaceLlamaGenerator,
@@ -18,22 +21,37 @@ from self_speculation.generator_base import (
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from self_speculation.speculative_streamer import SpeculativeTextStreamer
 
+def process_cli_arguments() -> Tuple[Arguments, GenerationConfig]:
+    parser = transformers.HfArgumentParser((Arguments, GenerationConfig))
+    (
+        general_arguments,
+        generation_config,
+        _remaining,
+    ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
+
+    if general_arguments.model_args:
+        general_arguments.model_args = simple_parse_args_string(general_arguments.model_args)
+    else:
+        general_arguments.model_args = {}
+
+    return general_arguments, generation_config
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
-backend = "nccl" if device == "cuda" else "gloo"
+backend = "nccl" if "cuda" in device else "gloo"
 
 torch.distributed.init_process_group(
     backend=f"{device}:{backend}", timeout=datetime.timedelta(hours=48)
 )
 rank = int(os.environ["LOCAL_RANK"])
-benchmark_arguments, generation_config = process_cli_arguments()
+args, generation_config = process_cli_arguments()
 
-random.seed(benchmark_arguments.seed)
-torch.manual_seed(benchmark_arguments.seed)
+random.seed(args.seed)
+torch.manual_seed(args.seed)
 if rank != 0:
     # only run on rank 0, we don't support parallel inference yet
     exit()
 
-local_model_path: str = benchmark_arguments.model_path
+local_model_path: str = args.model_path
 
 # initialize model
 tokenizer = transformers.LlamaTokenizer.from_pretrained(
@@ -45,6 +63,7 @@ model = transformers.LlamaForCausalLM.from_pretrained(
     local_model_path,
     config=config,
     torch_dtype=torch.float16,
+    **args.model_args,
 )
 model.to(device)
 model.half()
