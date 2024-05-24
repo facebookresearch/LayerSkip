@@ -1,13 +1,32 @@
 from transformers.generation.streamers import TextStreamer
+import threading
 
 class SpeculativeTextStreamer(TextStreamer):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, non_blocking=True, **kwargs):
         super().__init__(*args, **kwargs)
+        self.non_blocking = non_blocking
 
-    def put(self, value, escape_new_line: bool = False):
+    def put(self, value, escape_new_line: bool = False, color=None):
+        if self.non_blocking:
+            thread = threading.Thread(target=self._put, args=(value, escape_new_line, color))
+            thread.start()
+        else:
+            return self._put(value, escape_new_line)
+
+    def delete(self, num_tokens: int, escape_new_line: bool = False):
+        if self.non_blocking:
+            thread = threading.Thread(target=self._delete, args=(num_tokens, escape_new_line))
+            thread.start()
+        else:
+            return self._delete(num_tokens, escape_new_line)
+
+    def _put(self, value, escape_new_line: bool = False, color=None):
         """
         Receives tokens, decodes them, and prints them to stdout as soon as they form entire words.
         """
+        if color:
+            print(color, end="")
+
         if len(value.shape) > 1 and value.shape[0] > 1:
             raise ValueError("TextStreamer only supports batch size 1")
         elif len(value.shape) > 1:
@@ -33,7 +52,10 @@ class SpeculativeTextStreamer(TextStreamer):
 
         self.on_finalized_text(printable_text)
 
-    def delete(self, num_tokens: int, escape_new_line: bool = False):
+        if color:
+            print(color, end="")
+
+    def _delete(self, num_tokens: int, escape_new_line: bool = False):
         orig_text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
         self.token_cache = self.token_cache[:len(self.token_cache)-num_tokens]
         new_text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
