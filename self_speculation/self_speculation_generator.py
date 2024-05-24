@@ -9,6 +9,7 @@ from self_speculation.generator_base import (
     GenerationStrategy,
     GenerationStrategyResult,
 )
+from self_speculation.speculative_streamer import SpeculativeTextStreamer
 from self_speculation.llama_model_utils import (
     crop_past_key_values,
     decode_next_token,
@@ -140,9 +141,8 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         )
 
         if streamer:
-            print(colorama.Fore.LIGHTMAGENTA_EX, end="")
-            streamer.put(draft_output_ids, escape_new_line=True)
-            print(colorama.Style.RESET_ALL, end="")
+            if isinstance(streamer, SpeculativeTextStreamer):
+                streamer.put(draft_output_ids, escape_new_line=True, color=colorama.Fore.LIGHTMAGENTA_EX)
 
         # logits: 1 x (T_d  + T_p) x V
         verify_results = forward_remainder(
@@ -189,12 +189,13 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         output_ids.extend(verified_tokens[0][number_of_matches : number_of_matches + 1].tolist())
 
         if streamer:
-            streamer.delete(len(draft_output_ids[0, :]))
-            print(colorama.Fore.GREEN, end="")
-            streamer.put(draft_output_ids[0, : number_of_matches])
-            print(colorama.Style.RESET_ALL, end="")
-            streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1])
-            print(colorama.Style.RESET_ALL, end="")
+            if isinstance(streamer, SpeculativeTextStreamer):
+                streamer.delete(len(draft_output_ids[0, :]))
+                streamer.put(draft_output_ids[0, : number_of_matches], color=colorama.Fore.GREEN)
+                streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1], color=colorama.Style.RESET_ALL)
+            else:
+                # streamer.put(torch.cat((draft_output_ids[0, : number_of_matches], verified_tokens[0][number_of_matches : number_of_matches + 1])))
+                streamer.put(torch.Tensor(output_ids[len(output_ids)-number_of_matches-1:]))
 
         # we want the entire output sequence + input sequence
         past_key_values = crop_past_key_values(

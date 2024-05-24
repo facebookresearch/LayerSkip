@@ -1,4 +1,6 @@
 from typing import Tuple
+from enum import Enum
+from dataclasses import dataclass
 
 import colorama
 import datetime
@@ -20,10 +22,21 @@ from self_speculation.generator_base import (
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from self_speculation.speculative_streamer import SpeculativeTextStreamer
 
-def process_cli_arguments() -> Tuple[Arguments, GenerationConfig]:
-    parser = transformers.HfArgumentParser((Arguments, GenerationConfig))
+class StreamerType(str, Enum):
+    NONE="none"
+    STANDARD="standard"
+    SPECULATIVE="speculative"
+
+
+@dataclass
+class GenerateArguments:
+    streamer: StreamerType = StreamerType.STANDARD
+
+def process_cli_arguments() -> Tuple[Arguments, GenerateArguments, GenerationConfig]:
+    parser = transformers.HfArgumentParser((Arguments, GenerateArguments, GenerationConfig))
     (
         general_arguments,
+        generate_arguments,
         generation_config,
         _remaining,
     ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
@@ -33,7 +46,7 @@ def process_cli_arguments() -> Tuple[Arguments, GenerationConfig]:
     else:
         general_arguments.model_args = {}
 
-    return general_arguments, generation_config
+    return general_arguments, generate_arguments, generation_config
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 backend = "nccl" if "cuda" in device else "gloo"
@@ -42,7 +55,7 @@ torch.distributed.init_process_group(
     backend=f"{device}:{backend}", timeout=datetime.timedelta(hours=48)
 )
 rank = int(os.environ["LOCAL_RANK"])
-args, generation_config = process_cli_arguments()
+args, generate_arguments, generation_config = process_cli_arguments()
 
 random.seed(args.seed)
 torch.manual_seed(args.seed)
@@ -56,7 +69,6 @@ local_model_path: str = args.model_path
 tokenizer = transformers.LlamaTokenizer.from_pretrained(
     local_model_path, use_fast=False
 )
-streamer = SpeculativeTextStreamer(tokenizer)
 config = transformers.LlamaConfig.from_pretrained(local_model_path)
 model = transformers.LlamaForCausalLM.from_pretrained(
     local_model_path,
@@ -67,6 +79,17 @@ model = transformers.LlamaForCausalLM.from_pretrained(
 model.to(device)
 model.half()
 model.eval()
+
+streamer = None
+match generate_arguments.streamer:
+    case StreamerType.NONE:
+        streamer = None
+    case StreamerType.STANDARD:
+        streamer = transformers.TextStreamer(tokenizer)
+    case StreamerType.SPECULATIVE:
+        streamer = SpeculativeTextStreamer(tokenizer)
+    case _:
+        raise ValueError(f"Unsupported streamer type {generate_arguments.streamer}")
 
 if generation_config.generation_strategy == "autoregressive":
     generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
@@ -105,7 +128,10 @@ while True:
     num_tokens = response.num_tokens_generated
     total_time = response.total_time
 
-    streamer.end()
+    if streamer:
+        streamer.end()
+    else:
+        print(response.decoded_prediction)
 
     print(colorama.Style.RESET_ALL)
     print()
