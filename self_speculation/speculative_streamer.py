@@ -53,7 +53,7 @@ class SpeculativeTextStreamer(TextStreamer):
 
         # FIXME: instead of abusing escape_new_line as a proxy for streaming draft tokens, maybe rename to is_draft
         if not escape_new_line:
-            if new_text.endswith("\n") or new_text.endswith(" "):
+            if new_text[-1].isspace():
                 self.token_cache = []
                 self.text_cache = ""
                 self.print_len = 0
