@@ -143,7 +143,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         if streamer:
             if isinstance(streamer, SpeculativeTextStreamer):
                 print(colorama.Fore.LIGHTMAGENTA_EX, end="")
-                streamer.put(draft_output_ids, escape_new_line=True)
+                streamer.put(draft_output_ids, is_draft=True)
 
         # logits: 1 x (T_d  + T_p) x V
         verify_results = forward_remainder(

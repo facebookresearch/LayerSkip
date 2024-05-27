@@ -7,21 +7,21 @@ class SpeculativeTextStreamer(TextStreamer):
         self.non_blocking = non_blocking
         self.text_cache = ""
 
-    def put(self, value, escape_new_line: bool = False):
+    def put(self, value, is_draft: bool = False):
         if self.non_blocking:
-            thread = threading.Thread(target=self._put, args=(value, escape_new_line))
+            thread = threading.Thread(target=self._put, args=(value, is_draft))
             thread.start()
         else:
-            return self._put(value, escape_new_line)
+            return self._put(value, is_draft)
 
-    def delete(self, num_tokens: int, escape_new_line: bool = False):
+    def delete(self, num_tokens: int, is_draft: bool = False):
         if self.non_blocking:
-            thread = threading.Thread(target=self._delete, args=(num_tokens, escape_new_line))
+            thread = threading.Thread(target=self._delete, args=(num_tokens, is_draft))
             thread.start()
         else:
-            return self._delete(num_tokens, escape_new_line)
+            return self._delete(num_tokens, is_draft)
 
-    def _put(self, value, escape_new_line: bool = False):
+    def _put(self, value, is_draft: bool = False):
         """
         Receives tokens, decodes them, and prints them to stdout as soon as they form entire words.
         """
@@ -41,7 +41,7 @@ class SpeculativeTextStreamer(TextStreamer):
         self.text_cache = new_text
 
         # Escape new line in the newly added tokens
-        if escape_new_line:
+        if is_draft:
             diff_text = new_text.replace(orig_text, "")
             diff_text = diff_text.replace("\n", "\\n")
             new_text = orig_text + diff_text
@@ -51,19 +51,19 @@ class SpeculativeTextStreamer(TextStreamer):
 
         self.on_finalized_text(printable_text)
 
-        # FIXME: instead of abusing escape_new_line as a proxy for streaming draft tokens, maybe rename to is_draft
-        if not escape_new_line:
+        # FIXME: instead of abusing is_draft as a proxy for streaming draft tokens, maybe rename to is_draft
+        if not is_draft:
             if new_text[-1].isspace():
                 self.token_cache = []
                 self.text_cache = ""
                 self.print_len = 0
 
-    def _delete(self, num_tokens: int, escape_new_line: bool = False):
+    def _delete(self, num_tokens: int, is_draft: bool = False):
         orig_text = self.text_cache
         self.token_cache = self.token_cache[:len(self.token_cache)-num_tokens]
         new_text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
 
-        if escape_new_line:
+        if is_draft:
             diff_text = new_text.replace(orig_text, "")
             diff_text = diff_text.replace("\n", "\\n")
             new_text = orig_text + diff_text
