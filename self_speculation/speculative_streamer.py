@@ -2,7 +2,7 @@ from transformers.generation.streamers import TextStreamer
 import threading
 
 class SpeculativeTextStreamer(TextStreamer):
-    def __init__(self, *args, non_blocking=True, **kwargs):
+    def __init__(self, *args, non_blocking=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.non_blocking = non_blocking
         self.text_cache = ""
