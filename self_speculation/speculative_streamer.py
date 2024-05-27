@@ -54,6 +54,11 @@ class SpeculativeTextStreamer(TextStreamer):
 
         self.on_finalized_text(printable_text)
 
+        if new_text.endswith("\n") and not escape_new_line:
+            self.token_cache = []
+            self.text_cache = ""
+            self.print_len = 0
+
         if color:
             print(color, end="")
 
