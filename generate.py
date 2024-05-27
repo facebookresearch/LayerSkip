@@ -63,9 +63,9 @@ model = transformers.LlamaForCausalLM.from_pretrained(
     local_model_path,
     config=config,
     torch_dtype=torch.float16,
+    device_map=device,
     **args.model_args,
 )
-model.to(device)
 model.half()
 model.eval()
 
