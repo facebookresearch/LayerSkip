@@ -51,10 +51,12 @@ class SpeculativeTextStreamer(TextStreamer):
 
         self.on_finalized_text(printable_text)
 
-        if new_text.endswith("\n") and not escape_new_line:
-            self.token_cache = []
-            self.text_cache = ""
-            self.print_len = 0
+        # FIXME: instead of abusing escape_new_line as a proxy for streaming draft tokens, maybe rename to is_draft
+        if not escape_new_line:
+            if new_text.endswith("\n") or new_text.endswith(" "):
+                self.token_cache = []
+                self.text_cache = ""
+                self.print_len = 0
 
     def _delete(self, num_tokens: int, escape_new_line: bool = False):
         orig_text = self.text_cache
