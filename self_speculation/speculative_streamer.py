@@ -12,7 +12,7 @@ class SpeculativeTextStreamer(TextStreamer):
             thread = threading.Thread(target=self._put, args=(value, escape_new_line, color))
             thread.start()
         else:
-            return self._put(value, escape_new_line)
+            return self._put(value, escape_new_line, color)
 
     def delete(self, num_tokens: int, escape_new_line: bool = False):
         if self.non_blocking:
