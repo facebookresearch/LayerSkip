@@ -179,7 +179,8 @@ def benchmark(
         model: torch.nn.Module, 
         tokenizer: transformers.PreTrainedTokenizerBase, 
         benchmark_arguments: BenchmarkArguments, 
-        generation_config: GenerationConfig
+        generation_config: GenerationConfig,
+        seed = None,
     ):
     if generation_config.generation_strategy == "autoregressive":
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
@@ -200,7 +201,7 @@ def benchmark(
         num_samples=benchmark_arguments.num_samples,
         dataset=benchmark_arguments.dataset,
         n_shot=benchmark_arguments.n_shot,
-        seed=args.seed,
+        seed=seed,
         data_path=benchmark_arguments.data_path,
     )
     metrics = EvaluationMetrics.build_metrics()
