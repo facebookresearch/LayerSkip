@@ -5,6 +5,7 @@ class SpeculativeTextStreamer(TextStreamer):
     def __init__(self, *args, non_blocking=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.non_blocking = non_blocking
+        self.text_cache = ""
 
     def put(self, value, escape_new_line: bool = False, color=None):
         if self.non_blocking:
@@ -37,9 +38,10 @@ class SpeculativeTextStreamer(TextStreamer):
             return
 
         # Add the new token to the cache and decodes the entire thing.
-        orig_text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
+        orig_text = self.text_cache
         self.token_cache.extend(value.tolist())
         new_text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
+        self.text_cache = new_text
 
         # Escape new line in the newly added tokens
         if escape_new_line:
@@ -56,7 +58,7 @@ class SpeculativeTextStreamer(TextStreamer):
             print(color, end="")
 
     def _delete(self, num_tokens: int, escape_new_line: bool = False):
-        orig_text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
+        orig_text = self.text_cache
         self.token_cache = self.token_cache[:len(self.token_cache)-num_tokens]
         new_text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
 
@@ -73,3 +75,7 @@ class SpeculativeTextStreamer(TextStreamer):
         print(" "*remove_len, flush=True, end="")
         print("\b"*remove_len, flush=True, end="")
         self.print_len = len(new_text)
+
+    def end(self):
+        super().end()
+        self.text_cache = ""
