@@ -4,7 +4,6 @@ import colorama
 import datetime
 import random
 import sys
-import time
 import torch
 import traceback
 import transformers
@@ -93,7 +92,6 @@ while True:
     prompt=sys.stdin.read()
     print(colorama.Style.RESET_ALL, end=" ")
 
-    start = time.time()
     try:
         response: GenerationResult = generator.generate(
             prompt=prompt,
@@ -105,7 +103,7 @@ while True:
         traceback.print_exc()
         raise
     num_tokens = response.num_tokens_generated
-    total_time = time.time() - start
+    total_time = response.total_time
 
     streamer.end()
 
