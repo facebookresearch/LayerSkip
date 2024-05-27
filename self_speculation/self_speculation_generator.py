@@ -142,7 +142,8 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
 
         if streamer:
             if isinstance(streamer, SpeculativeTextStreamer):
-                streamer.put(draft_output_ids, escape_new_line=True, color=colorama.Fore.LIGHTMAGENTA_EX)
+                print(colorama.Fore.LIGHTMAGENTA_EX, end="")
+                streamer.put(draft_output_ids, escape_new_line=True)
 
         # logits: 1 x (T_d  + T_p) x V
         verify_results = forward_remainder(
@@ -191,8 +192,10 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         if streamer:
             if isinstance(streamer, SpeculativeTextStreamer):
                 streamer.delete(len(draft_output_ids[0, :]))
-                streamer.put(draft_output_ids[0, : number_of_matches], color=colorama.Fore.GREEN)
-                streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1], color=colorama.Style.RESET_ALL)
+                print(colorama.Fore.GREEN, end="")
+                streamer.put(draft_output_ids[0, : number_of_matches])
+                print(colorama.Style.RESET_ALL, end="")
+                streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1])
             else:
                 # streamer.put(torch.cat((draft_output_ids[0, : number_of_matches], verified_tokens[0][number_of_matches : number_of_matches + 1])))
                 streamer.put(torch.Tensor(output_ids[len(output_ids)-number_of_matches-1:]))

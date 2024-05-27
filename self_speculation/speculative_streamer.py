@@ -7,12 +7,12 @@ class SpeculativeTextStreamer(TextStreamer):
         self.non_blocking = non_blocking
         self.text_cache = ""
 
-    def put(self, value, escape_new_line: bool = False, color=None):
+    def put(self, value, escape_new_line: bool = False):
         if self.non_blocking:
-            thread = threading.Thread(target=self._put, args=(value, escape_new_line, color))
+            thread = threading.Thread(target=self._put, args=(value, escape_new_line))
             thread.start()
         else:
-            return self._put(value, escape_new_line, color)
+            return self._put(value, escape_new_line)
 
     def delete(self, num_tokens: int, escape_new_line: bool = False):
         if self.non_blocking:
@@ -21,13 +21,10 @@ class SpeculativeTextStreamer(TextStreamer):
         else:
             return self._delete(num_tokens, escape_new_line)
 
-    def _put(self, value, escape_new_line: bool = False, color=None):
+    def _put(self, value, escape_new_line: bool = False):
         """
         Receives tokens, decodes them, and prints them to stdout as soon as they form entire words.
         """
-        if color:
-            print(color, end="")
-
         if len(value.shape) > 1 and value.shape[0] > 1:
             raise ValueError("TextStreamer only supports batch size 1")
         elif len(value.shape) > 1:
@@ -58,9 +55,6 @@ class SpeculativeTextStreamer(TextStreamer):
             self.token_cache = []
             self.text_cache = ""
             self.print_len = 0
-
-        if color:
-            print(color, end="")
 
     def _delete(self, num_tokens: int, escape_new_line: bool = False):
         orig_text = self.text_cache
