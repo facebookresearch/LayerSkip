@@ -51,9 +51,8 @@ class SpeculativeTextStreamer(TextStreamer):
 
         self.on_finalized_text(printable_text)
 
-        # FIXME: instead of abusing is_draft as a proxy for streaming draft tokens, maybe rename to is_draft
         if not is_draft:
-            if new_text[-1].isspace():
+            if new_text[-1].isspace() and not new_text[-1]== " ":
                 self.token_cache = []
                 self.text_cache = ""
                 self.print_len = 0
