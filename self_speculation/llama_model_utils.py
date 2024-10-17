@@ -6,7 +6,6 @@
 #
 
 from dataclasses import dataclass
-import logging
 from typing import List, Optional, Tuple
 
 import torch
@@ -188,9 +187,8 @@ def forward_early(
         past_key_values_length,
     )
 
-    next_decoder_cache = []
     hidden_states = inputs_embeds
-    for idx, decoder_layer in enumerate(model.model.layers[:exit_layer]):
+    for decoder_layer in model.model.layers[:exit_layer]:
         hidden_states, past_key_values = decoder_layer(
             hidden_states,
             attention_mask=attention_mask,
@@ -210,10 +208,6 @@ def forward_early(
         exit_query_cache = torch.cat([exit_query_cache, hidden_states], dim=1)
 
     hidden_states = model.model.norm(hidden_states)
-
-    # add any layers that were not used into the KV cache for reuse
-    # if past_key_values is not None:
-    #     next_cache.extend(past_key_values[len(next_cache) :])
 
     logits = model.lm_head(hidden_states)
     return ForwardResult(
@@ -325,8 +319,6 @@ def forward_remainder(
                 use_cache=True,
                 padding_mask=None,
             )
-        # hidden_states = layer_outputs[0]
-        # next_decoder_cache.append(layer_outputs[1])
 
     past_key_values = past_key_values.to_legacy_cache()
     hidden_states = model.model.norm(hidden_states)
