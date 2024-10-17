@@ -324,7 +324,6 @@ def forward_remainder(
     hidden_states = model.model.norm(hidden_states)
     logits = model.lm_head(hidden_states)
 
-    # next_cache = next_decoder_cache
     return ForwardResult(
         logits=logits, past_key_values=past_key_values, exit_query_cache=exit_query_cache
     )
