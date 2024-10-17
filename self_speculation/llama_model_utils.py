@@ -191,7 +191,6 @@ def forward_early(
     next_decoder_cache = []
     hidden_states = inputs_embeds
     for idx, decoder_layer in enumerate(model.model.layers[:exit_layer]):
-        # past_key_value = past_key_values[idx] if past_key_values is not None else DynamicCache.from_legacy_cache(past_key_values)
         hidden_states, past_key_values = decoder_layer(
             hidden_states,
             attention_mask=attention_mask,
@@ -201,9 +200,7 @@ def forward_early(
             use_cache=True,
             padding_mask=None,
         )
-        # hidden_states = layer_outputs[0]
 
-        # next_decoder_cache.append(layer_outputs[1])
     past_key_values = past_key_values.to_legacy_cache()
 
     # next_cache = next_decoder_cache
@@ -252,7 +249,7 @@ def forward_remainder(
             full_past_key_values_length = 0
 
         seq_length_with_past = num_tokens_to_generate + draft_past_key_values_length
-    past_key_values = DynamicCache.from_legacy_cache(past_key_values)
+    past_key_values = transformers.cache_utils.DynamicCache.from_legacy_cache(past_key_values)
 
     inputs_embeds = model.model.embed_tokens(input_ids)
 

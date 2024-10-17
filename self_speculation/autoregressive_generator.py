@@ -42,10 +42,10 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
             if generation_config.exit_layer > 0:
                 model_output = forward_early(
                     model,
+                    input_ids,
+                    past_key_values,
                     generation_config.exit_layer,
-                    input_ids=input_ids,
-                    past_key_values=past_key_values,
-                    exit_query_cache=exit_query_cache,
+                    exit_query_cache,
                 )
             else:
                 model_output = model(
