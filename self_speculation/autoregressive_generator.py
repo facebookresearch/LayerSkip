@@ -30,6 +30,7 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
         eos_token_id: int,
         generation_config: GenerationConfig,
         logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
+        stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
         streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationStrategyResult:
         """Variant of `generate` with inputs/outputs formatted as token_ids."""
@@ -64,6 +65,10 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
             next_token = next_token.item()
             if next_token == eos_token_id:
                 break
+            if stopping_criteria:
+                # TODO: when implementing batch size > 1, stop each sample separately?
+                if torch.all(stopping_criteria(input_ids, scores=None)):
+                    break
             output_ids.append(next_token)
             # Don't concatenate `next_token` to original `input_ids` since we're using
             # the KV cache (`past_key_values`) to speed up generation.

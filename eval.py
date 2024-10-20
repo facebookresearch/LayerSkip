@@ -74,8 +74,7 @@ class EvalHarnessLM(LM):
         gen_args = gen_args[0]
         # TODO: remove "temperature", "top_p", and "top_k" from "gen_args"
         until = gen_args.get("until", [])
-        # TODO: add stop_words option to self.generation_config
-        # self.generation_config.until = until
+        self.generation_config.stop_words = until
         generations = []
         for prompt in tqdm(prompts):
             response: GenerationResult = self.generator.generate(
@@ -149,7 +148,8 @@ def main(args: Arguments, eval_arguments: EvalArguments, generation_config: Gene
     # Evaluate
     results = simple_evaluate(wrap, **asdict(eval_arguments))
 
-    print(results)
+    # TODO: log results, generation samples, etc.
+    print(results["results"])
 
 def process_cli_arguments() -> Tuple[Arguments, EvalArguments, GenerationConfig]:
     parser = transformers.HfArgumentParser((Arguments, EvalArguments, GenerationConfig))

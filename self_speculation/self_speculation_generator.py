@@ -36,6 +36,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         eos_token_id: int,
         generation_config: GenerationConfig,
         logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
+        stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
         streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationStrategyResult:
         past_key_values = None
@@ -72,6 +73,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 top_k=generation_config.top_k,
                 top_p=generation_config.top_p,
                 logits_processors=logits_processors,
+                stopping_criteria=stopping_criteria,
                 streamer=streamer,
             )
             calls += 1
@@ -107,6 +109,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         top_k: Optional[int] = 50,
         top_p: Optional[float] = 0.95,
         logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
+        stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
         streamer: Optional[transformers.TextStreamer] = None
     ):
         prompt_length: int = input_ids.size(1)
@@ -137,6 +140,10 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             if draft_next_token == eos_token_id:
                 # break out of loop when we get an EOS token
                 break
+            if stopping_criteria:
+                # TODO: when implementing batch size > 1, stop each sample separately?
+                if torch.all(stopping_criteria(input_ids, scores=None)):
+                    break
 
         # input_ids (1 x T_p) and draft_output_ids (1 x T_d) are concatenated together to make
         # 1 x (T_d  + T_p)

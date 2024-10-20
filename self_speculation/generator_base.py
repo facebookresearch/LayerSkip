@@ -41,6 +41,7 @@ class GenerationConfig:
     top_k: int = 0
     top_p: float = 0.9
     no_repeat_ngram_size: int = None
+    stop_words: List[str] = None
 
 
 class GenerationStrategy:
@@ -51,6 +52,7 @@ class GenerationStrategy:
         eos_token_id: int,
         generation_config: GenerationConfig,
         logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
+        stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
         streamer: Optional[transformers.TextStreamer] = None,  
     ) -> GenerationStrategyResult:
         raise NotImplementedError()
@@ -78,6 +80,16 @@ class HuggingfaceLlamaGenerator:
 
         return logits_processors
 
+    def create_stopping_criteria(
+            self,
+            generation_config: GenerationConfig,
+    ) -> transformers.StoppingCriteriaList:
+        stopping_criteria: transformers.StoppingCriteriaList = transformers.StoppingCriteriaList()
+        if generation_config.stop_words:
+            stopping_criteria.append(transformers.StopStringCriteria(self.tokenizer, generation_config.stop_words))
+
+        return stopping_criteria
+
     def generate(
         self,
         prompt: str,
@@ -86,6 +98,7 @@ class HuggingfaceLlamaGenerator:
     ) -> GenerationResult:
         example = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
         logits_processors = self.create_logits_processors(generation_config=generation_config)
+        stopping_criteria = self.create_stopping_criteria(generation_config)
         with torch.inference_mode():
             start = time.time()
             generation_strategy_result = self.generation_strategy.generate_token_ids(
@@ -94,6 +107,7 @@ class HuggingfaceLlamaGenerator:
                 eos_token_id=self.tokenizer.eos_token_id,
                 generation_config=generation_config,
                 logits_processors=logits_processors,
+                stopping_criteria=stopping_criteria,
                 streamer=streamer,
             )
             total_time = time.time() - start
