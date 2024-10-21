@@ -26,6 +26,7 @@ from self_speculation.generator_base import (
 )
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from generate import load_model_and_tokenizer, setup
+from benchmark import EvaluationMetrics
 
 @dataclass
 class EvalArguments:
@@ -85,6 +86,7 @@ class EvalHarnessLM(TemplateLM):
         self.batch_size = batch_size
         self.add_bos_token = add_bos_token
         self._max_length = max_length
+        self.metric_result = None
 
     def generate_until(self, requests: List[Instance]) -> List[str]:
         prompts, gen_args = zip(*[req.args for req in requests])
@@ -94,21 +96,24 @@ class EvalHarnessLM(TemplateLM):
         until = gen_args.get("until", [])
         self.generation_config.stop_words = until
         generations = []
+        metrics = EvaluationMetrics.build_metrics()
         for prompt in tqdm(prompts):
             response: GenerationResult = self.generator.generate(
                 prompt=prompt,
                 generation_config=self.generation_config,
             )
             generations.append(response.decoded_prediction)
+            metrics.update(None, response)
+        self.metric_result = metrics.compute()
         filtered_gen = []
         for p, g in tqdm(zip(prompts, generations)):
             for e in until:
-                # g = g.replace(e, "")
                 g = g.split(e, 1)[0]
             filtered_gen.append(g)
             self.cache_hook.add_partial("generate_until", (p, gen_args), g)
         return filtered_gen
 
+    # Copied from https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/models/huggingface.py
     @property
     def max_length(self):
         if self._max_length:  # if max length manually set, return it
@@ -381,6 +386,7 @@ def main(args: Arguments, eval_arguments: EvalArguments, generation_config: Gene
 
     # TODO: log results, generation samples, etc.
     print(results["results"])
+    print(wrap.metric_result)
 
 def process_cli_arguments() -> Tuple[Arguments, EvalArguments, GenerationConfig]:
     parser = transformers.HfArgumentParser((Arguments, EvalArguments, GenerationConfig))

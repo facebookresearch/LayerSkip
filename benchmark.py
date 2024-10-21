@@ -68,10 +68,11 @@ class EvaluationMetrics:
         evaluation_example: EvaluationExample,
         generation_result: GenerationResult,
     ) -> None:
-        for metric in self.predicted_text.values():
-            metric.update(
-                evaluation_example.output, generation_result.decoded_prediction
-            )
+        if evaluation_example is not None:
+            for metric in self.predicted_text.values():
+                metric.update(
+                    evaluation_example.output, generation_result.decoded_prediction
+                )
 
         for metric in self.acceptance_rate.values():
             acceptance_rate = torch.tensor(
