@@ -91,7 +91,7 @@ Tips:
 
 ## Evaluate
 
-We have integrated our generation scripts with [Eleuther Language Model Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness/tree/main) to enable a large number of tasks.
+We have integrated our generation scripts with [Eleuther Language Model Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness/tree/main) to enable a large number of tasks and properly post-process generated text.
 
 ```console
 $ torchrun eval.py --model facebook/layerskip-llama2-7B \
@@ -102,6 +102,12 @@ $ torchrun eval.py --model facebook/layerskip-llama2-7B \
     --num_speculations 6 \
     --output_dir ./logs
 ```
+
+Tips:
+- Note that with speculative decoding we can only obtain speedups from generation tasks (e.g., `gsm8k` or `cnn_dailymail`), while classificaton tasks, i.e., multiple choice question tasks (e.g., `piqa`, `social_iqa`) or True/False question tasks (e.g., `boolq`) will not lead to speedup.
+- You can specify arbitrary number of tasks supported by Eleuther Evaluation Harness using the `--tasks` argument. To get a list of all of possible tasks, check this [link](https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks).
+- Similar to the `generate.py` and `benchmark.py` scripts, you may specify different models, datasets, and sampling parameters
+- You may run `python benchmark.py --help` for details on different command-line arguments.
 
 ## Sweep
 Our inference hyperparameters, `exit_layer` and `num_speculations` determine the speedup during inference:
