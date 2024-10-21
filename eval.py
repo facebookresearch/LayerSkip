@@ -11,6 +11,7 @@ from typing import Any, List, Optional, Tuple, Union
 import torch
 import transformers
 from tqdm import tqdm
+from lm_eval import utils
 from lm_eval import simple_evaluate
 from lm_eval.api.instance import Instance
 from lm_eval.api.model import LM, TemplateLM
@@ -128,6 +129,7 @@ class EvalHarnessLM(TemplateLM):
             return self.generator.tokenizer.model_max_length
         return self._DEFAULT_MAX_LENGTH
 
+    # Copied from https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/models/huggingface.py
     def tok_encode(
         self, string: str, left_truncate_len=None, add_special_tokens=None
     ) -> List[int]:
@@ -153,11 +155,13 @@ class EvalHarnessLM(TemplateLM):
 
         return encoding
 
+    # Copied from https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/models/huggingface.py
     @property
     def eot_token_id(self):
         # we use EOT because end of *text* is more accurate for what we're doing than end of *sentence*
         return self.tokenizer.eos_token_id
 
+    # Copied from https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/models/huggingface.py
     def _loglikelihood_tokens(
         self,
         requests: List[Tuple[Tuple[str, str], List[int], List[int]]],
@@ -326,30 +330,66 @@ class EvalHarnessLM(TemplateLM):
 
         return re_ord.get_original(res)
 
-    # # TODO: just call LM HF loglikelihood(...)
-    # def loglikelihood(self, requests: List[Instance]) -> List[Tuple[float, bool]]:
-    #     prompts, continuations = zip(*[req.args for req in requests])
-    #     inputs = [req.args[0] + req.args[1] for req in requests]
-    #     results = []
-    #     for prompt, input in tqdm(zip(prompts, inputs)):
-    #         prompt_enc = self.generator.tokenizer(prompt, return_tensors="pt", add_special_tokens=True).to(self.device)
-    #         input_enc = self.generator.tokenizer(input, return_tensors="pt", add_special_tokens=True).to(self.device)
-    #         loss = self.generator.model(**prompt_enc, labels=prompt_enc["input_ids"]).loss
-    #         next_token = self.generator.model(**input_enc).logits[:,-1].argmax()
-    #         results.append((loss.item(), next_token.all().item()))
+    # Copied from https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/models/huggingface.py
+    def loglikelihood_rolling(
+        self, requests: List[Instance], disable_tqdm: bool = False
+    ) -> List[float]:
+        loglikelihoods = []
 
-    #     return results
+        adaptive_batch_size = None
+        if self.batch_size == "auto":
+            # using rolling window with maximum context
+            print("Passed argument batch_size = auto. Detecting largest batch size")
+            batch_size = self._detect_batch_size()
+            print(f"Determined Largest batch size: {batch_size}")
+            adaptive_batch_size = batch_size
 
-    # TODO: just call LM HF loglikelihood_rolling(...)?
-    def loglikelihood_rolling(self, requests: List[Instance]) -> List[float]:
-        prompts = [req.args[0] for req in requests]
-        results = []
-        for prompt in tqdm(prompts):
-            output = self.generator.model(**self.generator.tokenizer(prompt, return_tensors="pt", add_special_tokens=True).to(self.device))
-            loss = output.loss
-            results.append((loss.sum().item(),))
+        for (string,) in tqdm(
+            [req.args for req in requests], disable=(disable_tqdm or (self.rank != 0))
+        ):
+            rolling_token_windows = list(
+                map(
+                    utils.make_disjoint_window,
+                    utils.get_rolling_token_windows(
+                        token_list=self.tok_encode(string),
+                        prefix_token=self.prefix_token_id,
+                        max_seq_len=self.max_length,
+                        context_len=1,
+                    ),
+                )
+            )
 
-        return results
+            # TODO: Right now, we pass single EOT token to the Encoder and the full context to the decoder, in seq2seq case
+            rolling_token_windows = [(None,) + x for x in rolling_token_windows]
+
+            pad_amnt = 0
+            if self.world_size > 1:
+                # We pad out the external document-level iterator so the inner iterator doesn't hang
+                mytensor = torch.tensor(len(rolling_token_windows), device=self.device)
+                gathered = (
+                    self.accelerator.gather(mytensor).cpu().detach().numpy().tolist()
+                )
+
+                pad_amnt = max(gathered) - gathered[self.rank]
+                if pad_amnt > 0:
+                    rolling_token_windows += pad_amnt * [rolling_token_windows[0]]
+
+            string_nll = self._loglikelihood_tokens(
+                requests=rolling_token_windows,
+                disable_tqdm=True,
+                override_bs=adaptive_batch_size,
+            )
+
+            if (self.world_size > 1) and (pad_amnt > 0):
+                string_nll = [x[0] for x in string_nll[:-pad_amnt]]
+            else:
+                # discard is_greedy
+                string_nll = [x[0] for x in string_nll]
+
+            string_nll = sum(string_nll)
+            loglikelihoods.append(string_nll)
+
+        return loglikelihoods
 
 def main(args: Arguments, eval_arguments: EvalArguments, generation_config: GenerationConfig):
     device = "cuda" if torch.cuda.is_available() else "cpu"
