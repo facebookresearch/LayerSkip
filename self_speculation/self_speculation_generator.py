@@ -87,6 +87,10 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 eos_found = True
             if eos_found:
                 break
+            if stopping_criteria:
+                # TODO: when implementing batch size > 1, stop each sample separately?
+                if torch.all(stopping_criteria(input_ids, scores=None)):
+                    break
         return GenerationStrategyResult(
             predicted_tokens=output_ids,
             acceptance_rate=total_draft_matches / total_generations,
@@ -140,10 +144,6 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             if draft_next_token == eos_token_id:
                 # break out of loop when we get an EOS token
                 break
-            if stopping_criteria:
-                # TODO: when implementing batch size > 1, stop each sample separately?
-                if torch.all(stopping_criteria(input_ids, scores=None)):
-                    break
 
         # input_ids (1 x T_p) and draft_output_ids (1 x T_d) are concatenated together to make
         # 1 x (T_d  + T_p)
