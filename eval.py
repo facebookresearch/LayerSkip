@@ -426,6 +426,7 @@ def main(args: Arguments, eval_arguments: EvalArguments, generation_config: Gene
 
     # TODO: log results, generation samples, etc.
     print(results["results"])
+    wrap.metric_result.pop("predicted_text")
     print(wrap.metric_result)
 
 def process_cli_arguments() -> Tuple[Arguments, EvalArguments, GenerationConfig]:
