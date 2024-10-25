@@ -1,0 +1,22 @@
+
+# Exclude Git repository files
+.git
+.gitignore
+
+# Exclude Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Exclude Docker files
+Dockerfile
+docker-compose.yml
+
+# Exclude logs and data
+logs/
+data/
+outputs/
+
+# Exclude environment files
+.env
