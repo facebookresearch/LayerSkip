@@ -151,7 +151,7 @@ $ torchrun correctness.py --model facebook/layerskip-llama2-7B \
 
 ## Using Docker
 
-Kindy check [Docker.md](DOCKER.md) to setup the project using docker
+Kindy check [DOCKER.md](DOCKER.md) to setup the project using docker
 
 ## Other Implementations
 We also have other implementations of LayerSkip inference:
