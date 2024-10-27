@@ -149,6 +149,10 @@ $ torchrun correctness.py --model facebook/layerskip-llama2-7B \
     --output_dir ./logs
 ```
 
+## Using Docker
+
+Kindy check [Docker.md](DOCKER.md) to setup the project using docker
+
 ## Other Implementations
 We also have other implementations of LayerSkip inference:
 - [gpt-fast](https://github.com/pytorch-labs/gpt-fast/tree/LayerSkip?tab=readme-ov-file#self-speculative-sampling): gpt-fast is a simple and efficient pytorch-native transformer text generation. We have implemented LayerSkip in the gpt-fast codebase to enable compouding it with other optimizations such as `torch.compile()`, quantization, and tensor parallelism.

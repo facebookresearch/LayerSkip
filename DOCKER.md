@@ -1,8 +1,8 @@
-## Docker Setup
+# Docker Setup
 
 Leverage Docker to create a consistent and reproducible environment for running **LayerSkip** without requiring GPU support. This setup ensures that all dependencies are managed efficiently and secrets like the HuggingFace token are handled securely.
 
-### Prerequisites
+## Prerequisites
 
 1. **Docker Installed**: Ensure Docker is installed on your machine. [Get Docker](https://docs.docker.com/get-docker/)
 
@@ -13,14 +13,15 @@ Leverage Docker to create a consistent and reproducible environment for running 
 Follow these steps to build the Docker image for **LayerSkip**:
 
 1. **Clone the Repository**:
-    ```bash
+
+   ```bash
     git clone git@github.com:facebookresearch/LayerSkip.git
     cd LayerSkip
     ```
 
 2. **Ensure Dockerfile and Entrypoint Script are Present**:  
    Make sure the `Dockerfile`, `entrypoint.sh`, and `.dockerignore` are located in the root directory of your project as shown below:
-   
+      
     ```
     .
     ├── Dockerfile
@@ -32,6 +33,7 @@ Follow these steps to build the Docker image for **LayerSkip**:
     ├── CONTRIBUTING.md
     ├── correctness.py
     ├── data.py
+    ├── DOCKER.md
     ├── eval.py
     ├── generate.py
     ├── LICENSE
