@@ -7,6 +7,9 @@ This code base is the implementation of [LayerSkip: Enabling Early Exit Inferenc
   <img src="https://github.com/user-attachments/assets/1fdd91d9-37ea-4b42-b5be-579fb5e1f2f2" width="500">
 </div>
 
+## News
+- [2024/11] 🤗 LayerSkip has been integrated into [Hugging Face `transformers`](https://huggingface.co/blog/layerskip).
+
 ## Getting Started
 - Clone repo:
 ```console
