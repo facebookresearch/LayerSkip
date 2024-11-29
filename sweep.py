@@ -5,28 +5,38 @@
 # LICENSE file in the root directory of this source tree.
 #
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import transformers
 from datetime import datetime
 import os
 import tabulate
 import torch
+from dataclasses import dataclass
 
+import arguments
 from arguments import Arguments, simple_parse_args_string
 from benchmark import benchmark, load_model_and_tokenizer, process_cli_arguments, setup, BenchmarkArguments
 from self_speculation.generator_base import (
     GenerationConfig,
 )
 
-def sweep(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
+@dataclass
+class SweepArguments:
+    exit_layer_first: Optional[int] = 1
+    exit_layer_last: Optional[int] = 15
+    exit_layer_step: Optional[int] = 1
+    num_speculations_first: Optional[int] = 1
+    num_speculations_last: Optional[int] = 6
+    num_speculations_step: Optional[int] = 1
+
+def sweep(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, sweep_arguments: SweepArguments, output_fname: str):
     results: List[Dict] = []
     device = "cuda" if torch.cuda.is_available() else "cpu"
     setup(args, device=device)
-    # TODO: make start, end, step arguments to the script
     model, tokenizer = load_model_and_tokenizer(args, device=device)
-    for exit_layer in range(1, len(model.model.layers) // 2, 1):
-        for num_speculations in range(1, 13, 1):
+    for exit_layer in range(sweep_arguments.exit_layer_first, sweep_arguments.exit_layer_last, sweep_arguments.exit_layer_step):
+        for num_speculations in range(sweep_arguments.num_speculations_first, sweep_arguments.num_speculations_last, sweep_arguments.num_speculations_step):
             generation_config.exit_layer = exit_layer
             generation_config.num_speculations = num_speculations
 
@@ -51,7 +61,24 @@ def sweep(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_c
     rows =  [x.values() for x in results]
     print(tabulate.tabulate(rows, header))
 
+def process_cli_arguments() -> Tuple[arguments.Arguments, BenchmarkArguments, GenerationConfig, SweepArguments]:
+    parser = transformers.HfArgumentParser((arguments.Arguments, BenchmarkArguments, GenerationConfig, SweepArguments))
+    (
+        general_arguments,
+        benchmark_arguments,
+        generation_config,
+        sweep_arguments,
+        _remaining,
+    ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
+
+    if general_arguments.model_args:
+        general_arguments.model_args = simple_parse_args_string(general_arguments.model_args)
+    else:
+        general_arguments.model_args = {}
+
+    return general_arguments, benchmark_arguments, generation_config, sweep_arguments
+
 if __name__ == "__main__":
-    args, benchmark_arguments, generation_config = process_cli_arguments()
+    args, benchmark_arguments, generation_config, sweep_arguments = process_cli_arguments()
     os.makedirs(args.output_dir, exist_ok=True)
-    sweep(args, benchmark_arguments, generation_config, f"{args.output_dir}/sweep_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+    sweep(args, benchmark_arguments, generation_config, sweep_arguments, f"{args.output_dir}/sweep_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")

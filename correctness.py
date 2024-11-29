@@ -10,13 +10,15 @@ import json
 import os
 import random
 import logging
+from copy import copy
 
 import torch
 
 import transformers
 
-from arguments import BenchmarkArguments, process_cli_arguments
+from benchmark import Arguments, BenchmarkArguments, process_cli_arguments
 from data import get_data
+from generate import load_model_and_tokenizer, setup
 from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
 
 from self_speculation.generator_base import (
@@ -33,34 +35,17 @@ from tqdm import tqdm
 log = logging.getLogger(__name__)
 
 
-def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
-    torch.distributed.init_process_group(
-        backend="cpu:gloo,cuda:nccl", timeout=datetime.timedelta(hours=48)
-    )
-    rank = int(os.environ["LOCAL_RANK"])
-    
-    random.seed(benchmark_arguments.seed)
-    torch.manual_seed(benchmark_arguments.seed)
+def main(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str, seed = 0):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    random.seed(seed)
+    torch.manual_seed(seed)
 
-    if rank != 0:
-        # only run on rank 0, we don't support parallel inference yet
-        return
+    setup(args, device=device)
+    model, tokenizer = load_model_and_tokenizer(args, device=device)
 
-    local_model_path: str = benchmark_arguments.model
-
-    # initialize model
-    tokenizer = transformers.LlamaTokenizer.from_pretrained(
-        local_model_path, use_fast=False
-    )
-    config = transformers.LlamaConfig.from_pretrained(local_model_path)
-    model = transformers.LlamaForCausalLM.from_pretrained(
-        local_model_path,
-        config=config,
-        torch_dtype=torch.float16,
-    )
-    model.cuda()
-    model.half()
-    model.eval()
+    ar_generation_config = copy(generation_config)
+    ar_generation_config.exit_layer = -1
+    ar_generation_config.num_speculations = -1
 
     # initialize generator
     spec_generator = HuggingfaceLlamaGenerator(
@@ -91,12 +76,7 @@ def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationC
         ar_response: GenerationResult = ar_generator.generate(
             prompt=example.input,
             # generation config to use the full model
-            generation_config=GenerationConfig(
-                max_steps=generation_config.max_steps,
-                exit_layer=-1,
-                num_speculations=-1,
-                generation_strategy="autoregressive",
-            ),
+            generation_config=ar_generation_config,
         )
 
         if spec_response.decoded_prediction != ar_response.decoded_prediction:
@@ -113,5 +93,7 @@ def main(benchmark_arguments: BenchmarkArguments, generation_config: GenerationC
 
 
 if __name__ == "__main__":
-    args = process_cli_arguments()
-    main(args.benchmark_arguments, args.generation_config, f"{args.benchmark_arguments.output_dir}/correctness_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+    args, benchmark_arguments, generation_config = process_cli_arguments()
+    log.setLevel(level=logging.INFO) # TODO: set level based on argument
+    os.makedirs(args.output_dir, exist_ok=True)
+    main(args, benchmark_arguments, generation_config, f"{args.output_dir}/correctness_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json")

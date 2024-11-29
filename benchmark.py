@@ -240,4 +240,5 @@ def process_cli_arguments() -> Tuple[arguments.Arguments, BenchmarkArguments, Ge
 if __name__ == "__main__":
     args, benchmark_arguments, generation_config = process_cli_arguments()
     log.setLevel(level=logging.INFO) # TODO: set level based on argument
+    os.makedirs(args.output_dir, exist_ok=True)
     main(args, benchmark_arguments, generation_config, f"{args.output_dir}/benchmark_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
