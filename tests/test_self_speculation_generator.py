@@ -28,7 +28,7 @@ def model_and_config():
 
 def test_single_step_speculation_handling_eos(model_and_config):
     """Tests the single step speculation and checks EOS handling."""
-    print("aya bhi kuch")
+
     model, tokenizer, generation_config = model_and_config
     strategy = SelfSpeculativeGenerationStrategy()
     input_ids = torch.tensor([[tokenizer.encode("my")[1]]], device=model.device)
