@@ -1,3 +1,11 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+#
+
+
 import pytest
 import torch
 from self_speculation.llama_model_utils import _prepare_decoder_attention_mask, _make_causal_mask, _expand_mask, top_k_top_p_filtering, decode_next_token, ForwardResult
