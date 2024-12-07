@@ -24,7 +24,7 @@ def model_and_config():
     model = AutoModelForCausalLM.from_pretrained(
         local_model_path,
         use_safetensors=True,
-        device_map="mps",
+        device_map="auto",
         torch_dtype=torch.float,
     )
 
@@ -59,4 +59,6 @@ def test_generate_token_ids_with_logit_processors(model_and_config):
 
     assert len(result.predicted_tokens) > 0
     assert eos_token_id in result.predicted_tokens or len(result.predicted_tokens) == config.max_steps
+
+
 
