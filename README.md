@@ -30,7 +30,7 @@ In order to observe speedup, you need to access LLMs that have been trained usin
 
     - [`facebook/layerskip-llama2-7B`](https://huggingface.co/facebook/layerskip-llama2-7B)
     - [`facebook/layerskip-llama2-13B`](https://huggingface.co/facebook/layerskip-llama2-13B)
-    - - [`facebook/layerskip-llama2-70B`](https://huggingface.co/facebook/layerskip-llama2-70B)
+    - [`facebook/layerskip-llama2-70B`](https://huggingface.co/facebook/layerskip-llama2-70B)
     - [`facebook/layerskip-codellama-7B`](https://huggingface.co/facebook/layerskip-codellama-7B)
     - [`facebook/layerskip-codellama-34B`](https://huggingface.co/facebook/layerskip-codellama-34B)
     - [`facebook/layerskip-llama3-8B`](https://huggingface.co/facebook/layerskip-llama3-8B)
