@@ -52,6 +52,3 @@ def test_draft_handling(streamer, is_draft):
         assert '\n' not in streamer.text_cache
     else:
         assert streamer.text_cache == '1 2 3'
-
-
-        

@@ -30,7 +30,7 @@ def model_and_config():
     )
 
     model.eval()
-    config = GenerationConfig(max_steps=4)
+    config = GenerationConfig(max_steps=4, exit_layer=4, num_speculations=4)
 
     return model, tokenizer, config
 
@@ -77,7 +77,3 @@ def test_generate_token_ids_with_logit_processors(model_and_config):
 
     assert len(result.predicted_tokens) > 0
     assert eos_token_id in result.predicted_tokens or len(result.predicted_tokens) == config.max_steps
-
-
-
-

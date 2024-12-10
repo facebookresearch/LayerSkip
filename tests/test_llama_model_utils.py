@@ -74,6 +74,3 @@ def test_decode_next_token_sampling():
     next_token, probabilities = decode_next_token(logits, sample=True)
     assert next_token.shape == torch.Size([1, 1])
     assert probabilities.shape == torch.Size([1, 3])
-
-
-    
