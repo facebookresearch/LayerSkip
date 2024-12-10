@@ -153,7 +153,6 @@ $ torchrun correctness.py --model facebook/layerskip-llama2-7B \
 ```
 
 ## Using Docker
-
 Kindy check [DOCKER.md](DOCKER.md) to setup the project using docker
 
 ## Other Implementations
@@ -163,6 +162,12 @@ We also have other implementations of LayerSkip inference:
 
 ## Training
 Our training implementation is work-in-progress. You can check this [pull request](https://github.com/pytorch/torchtune/pull/1076) for details and discussions.
+
+## Tests
+To run unit/integration tests:
+```
+$ pytest ./tests/
+```
 
 ## License
 LayerSkip is licensed under CC-by-NC license. Refer to the LICENSE file in the top level directory.
