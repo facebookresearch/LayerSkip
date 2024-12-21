@@ -42,14 +42,18 @@ class GenerationConfig:
     top_p: float = 0.9
     no_repeat_ngram_size: int = None
     stop_words: List[str] = None
+    stop_token_ids: List[int] = None
 
+    def __post_init__(self):
+        if self.stop_token_ids is None:
+            self.stop_token_ids = []
 
 class GenerationStrategy:
     def generate_token_ids(
         self,
         model: transformers.LlamaForCausalLM,
         input_ids: List[int],
-        eos_token_id: int,
+        eos_token_ids: List[int],
         generation_config: GenerationConfig,
         logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
         stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
@@ -99,12 +103,13 @@ class HuggingfaceLlamaGenerator:
         example = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
         logits_processors = self.create_logits_processors(generation_config=generation_config)
         stopping_criteria = self.create_stopping_criteria(generation_config)
+        eos_token_ids = generation_config.stop_token_ids + [self.tokenizer.eos_token_id]
         with torch.inference_mode():
             start = time.time()
             generation_strategy_result = self.generation_strategy.generate_token_ids(
                 model=self.model,
                 input_ids=example["input_ids"].tolist()[0],
-                eos_token_id=self.tokenizer.eos_token_id,
+                eos_token_ids=eos_token_ids,
                 generation_config=generation_config,
                 logits_processors=logits_processors,
                 stopping_criteria=stopping_criteria,

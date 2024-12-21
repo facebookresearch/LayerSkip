@@ -33,7 +33,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         self,
         model: transformers.LlamaForCausalLM,
         input_ids: List[int],
-        eos_token_id: int,
+        eos_token_ids: List[int],
         generation_config: GenerationConfig,
         logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
         stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
@@ -66,7 +66,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 ),
                 past_key_values=past_key_values,
                 exit_layer=generation_config.exit_layer,
-                eos_token_id=eos_token_id,
+                eos_token_ids=eos_token_ids,
                 calls=calls,
                 sample=generation_config.sample,
                 temperature=generation_config.temperature,
@@ -80,11 +80,13 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             total_draft_matches += number_of_matches
             total_generations += num_speculations
             eos_found = False
-            if eos_token_id in output_ids:
-                # break out of loop when we get an EOS token
-                # remove the EOS token id
-                output_ids = output_ids[: output_ids.index(eos_token_id)]
-                eos_found = True
+            for eos_token_id in eos_token_ids:
+                if eos_token_id in output_ids:
+                    # break out of loop when we get an EOS token
+                    # remove the EOS token id
+                    output_ids = output_ids[: output_ids.index(eos_token_id)]
+                    eos_found = True
+                    break
             if eos_found:
                 break
             if stopping_criteria:
@@ -105,7 +107,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         output_ids: List[int],
         num_speculations: int,
         past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
-        eos_token_id: int,
+        eos_token_ids: List[int],
         calls: int,
         exit_layer: int,
         sample: Optional[bool] = False,
@@ -141,7 +143,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             if sample:
                 draft_probabilities.append(draft_next_prob)
             draft_input_ids = torch.tensor([[draft_next_token]]).to(draft_input_ids)
-            if draft_next_token == eos_token_id:
+            if draft_next_token in eos_token_ids:
                 # break out of loop when we get an EOS token
                 break
 

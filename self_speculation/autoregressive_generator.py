@@ -27,7 +27,7 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
         self,
         model: transformers.LlamaForCausalLM,
         input_ids: List[int],
-        eos_token_id: int,
+        eos_token_ids: List[int],
         generation_config: GenerationConfig,
         logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
         stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
@@ -63,7 +63,7 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
             if streamer:
                 streamer.put(next_token)
             next_token = next_token.item()
-            if next_token == eos_token_id:
+            if next_token in eos_token_ids:
                 break
             if stopping_criteria:
                 # TODO: when implementing batch size > 1, stop each sample separately?
