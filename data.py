@@ -8,7 +8,7 @@
 import json
 import random
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from datasets import load_dataset
 
@@ -18,8 +18,8 @@ PREFIX_LENGTH: int = 100
 
 @dataclass
 class EvaluationExample:
-    input: str
-    output: str
+    input: Union[str, List[int]]
+    output: Union[str, List[int]]
 
 
 class DatasetFormat:
@@ -28,6 +28,7 @@ class DatasetFormat:
     CNN_DM_LM: str = "cnn_dm_lm"
     XSUM_SUMMARIZATION: str = "xsum_summarization"
     HUMAN_EVAL: str = "human_eval"
+    TOKEN_IDS: str = "token_ids"
 
 
 def LowercaseProcessingFunction(input: str) -> str:
@@ -131,6 +132,19 @@ def prepare_human_eval() -> List[EvaluationExample]:
         )
     return evaluation_data_points
 
+def prepare_token_ids_format(data_path: str) -> List[EvaluationExample]:
+    evaluation_data_points = []
+    with open(data_path, "r") as f:
+        token_ids_list: [List[List[int]]] = json.load(f)
+    for token_ids in token_ids_list:
+        evaluation_data_points.append(
+            EvaluationExample(
+                input=token_ids,
+                output=[],
+            )
+        )
+    return evaluation_data_points
+
 def get_data(
     random_shuffle: bool,
     num_samples: int,
@@ -149,6 +163,8 @@ def get_data(
         evaluation_data_points = prepare_cnn_dm_lm_format()
     elif dataset == DatasetFormat.HUMAN_EVAL:
         evaluation_data_points = prepare_human_eval()
+    elif dataset == DatasetFormat.TOKEN_IDS:
+        evaluation_data_points = prepare_token_ids_format(data_path)
     else:
         raise NotImplementedError(f"Unknown dataset format {dataset}")
 

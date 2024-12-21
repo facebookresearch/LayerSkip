@@ -7,7 +7,7 @@
 
 import time
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import torch
 
@@ -96,11 +96,15 @@ class HuggingfaceLlamaGenerator:
 
     def generate(
         self,
-        prompt: str,
+        prompt: Union[str,  List[int]],
         generation_config: GenerationConfig,
         streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationResult:
-        example = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
+        if isinstance(prompt, str):
+            example = self.tokenizer(prompt, return_tensors="pt", add_special_tokens=True)
+            input_ids = example["input_ids"].tolist()[0]
+        else:
+            input_ids = prompt
         logits_processors = self.create_logits_processors(generation_config=generation_config)
         stopping_criteria = self.create_stopping_criteria(generation_config)
         eos_token_ids = generation_config.stop_token_ids + [self.tokenizer.eos_token_id]
@@ -108,7 +112,7 @@ class HuggingfaceLlamaGenerator:
             start = time.time()
             generation_strategy_result = self.generation_strategy.generate_token_ids(
                 model=self.model,
-                input_ids=example["input_ids"].tolist()[0],
+                input_ids=input_ids,
                 eos_token_ids=eos_token_ids,
                 generation_config=generation_config,
                 logits_processors=logits_processors,
