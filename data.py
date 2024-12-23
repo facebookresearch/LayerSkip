@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from datasets import load_dataset
+import pandas as pd
 
 # for language modeling problems how long to use the prefix as
 PREFIX_LENGTH: int = 100
@@ -28,6 +29,7 @@ class DatasetFormat:
     CNN_DM_LM: str = "cnn_dm_lm"
     XSUM_SUMMARIZATION: str = "xsum_summarization"
     HUMAN_EVAL: str = "human_eval"
+    CUSTOM_JSONL: str = "custom_jsonl"
 
 
 def LowercaseProcessingFunction(input: str) -> str:
@@ -131,6 +133,17 @@ def prepare_human_eval() -> List[EvaluationExample]:
         )
     return evaluation_data_points
 
+def prepare_custom(data_path: str, prompt_field: str = "prompt", response_field: str = "response") -> List[EvaluationExample]:
+    evaluation_data_points = []
+    for _, data_point in pd.read_json(data_path, lines=True).iterrows():
+        evaluation_data_points.append(
+            EvaluationExample(
+                input=data_point[prompt_field],
+                output=data_point[response_field],
+            )
+        )
+    return evaluation_data_points
+
 def get_data(
     random_shuffle: bool,
     num_samples: int,
@@ -138,6 +151,8 @@ def get_data(
     data_path: Optional[str] = None,
     n_shot: int = 0,
     seed: int = 42,
+    prompt_field: str = "prompt",
+    response_field: str = "response",
 ) -> List[EvaluationExample]:
     if dataset == DatasetFormat.CHAT_FORMAT:
         evaluation_data_points = prepare_evaluation_examples_chat_format(data_path)
@@ -149,6 +164,8 @@ def get_data(
         evaluation_data_points = prepare_cnn_dm_lm_format()
     elif dataset == DatasetFormat.HUMAN_EVAL:
         evaluation_data_points = prepare_human_eval()
+    elif dataset == DatasetFormat.CUSTOM_JSONL:
+        evaluation_data_points = prepare_custom(data_path, prompt_field=prompt_field, response_field=response_field)
     else:
         raise NotImplementedError(f"Unknown dataset format {dataset}")
 
