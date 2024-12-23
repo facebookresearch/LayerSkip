@@ -184,11 +184,13 @@ def benchmark(
             prompt=example.input,
             generation_config=generation_config,
         )
-        print(
-            f"[Example]: {example.output}\n[Prediction]: {response.decoded_prediction}"
-        )
+        print(f"[Prompt]:\n{example.input}")
+        print(f"[Reference Response]:\n{example.output}")
+        print(f"[Model Response]:\n{response.decoded_prediction}")
+        if response.generation_strategy_result.acceptance_rate is not None:
+            print(f"[Acceptance Rate]: {response.generation_strategy_result.acceptance_rate}")
         if response.num_tokens_generated == 0:
-            print("Skipping empty generation")
+            print("Skipping metrics of empty generation")
             # TBD: print stats of emprty generations
             continue
         metrics.update(example, response)
