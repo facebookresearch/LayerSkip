@@ -13,6 +13,9 @@ import os
 import tabulate
 import torch
 from dataclasses import dataclass
+from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+import numpy as np
 
 import arguments
 from arguments import Arguments, simple_parse_args_string
@@ -30,13 +33,19 @@ class SweepArguments:
     num_speculations_last: Optional[int] = 6
     num_speculations_step: Optional[int] = 1
 
-def sweep(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, sweep_arguments: SweepArguments, output_fname: str):
+def sweep(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, sweep_arguments: SweepArguments):
     results: List[Dict] = []
     device = "cuda" if torch.cuda.is_available() else "cpu"
     setup(args, device=device)
     model, tokenizer = load_model_and_tokenizer(args, device=device)
-    for exit_layer in range(sweep_arguments.exit_layer_first, sweep_arguments.exit_layer_last, sweep_arguments.exit_layer_step):
-        for num_speculations in range(sweep_arguments.num_speculations_first, sweep_arguments.num_speculations_last, sweep_arguments.num_speculations_step):
+
+    os.makedirs(args.output_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    csv_fname = f"{args.output_dir}/sweep_{timestamp}.csv"
+    pdf_fname = f"{args.output_dir}/sweep_{timestamp}.pdf"
+
+    for exit_layer in range(sweep_arguments.exit_layer_first, sweep_arguments.exit_layer_last+1, sweep_arguments.exit_layer_step):
+        for num_speculations in range(sweep_arguments.num_speculations_first, sweep_arguments.num_speculations_last+1, sweep_arguments.num_speculations_step):
             generation_config.exit_layer = exit_layer
             generation_config.num_speculations = num_speculations
 
@@ -52,7 +61,7 @@ def sweep(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_c
             })
             df = pd.DataFrame(results) 
             # Update table every iteration
-            df.to_csv(output_fname, index=False)
+            df.to_csv(csv_fname, index=False)
             print(f"exit_layer: {exit_layer}, num_speculations: {num_speculations}, time_per_token: {metric_result['time_per_token']['mean']}")
 
     # Print summary table
@@ -80,5 +89,4 @@ def process_cli_arguments() -> Tuple[arguments.Arguments, BenchmarkArguments, Ge
 
 if __name__ == "__main__":
     args, benchmark_arguments, generation_config, sweep_arguments = process_cli_arguments()
-    os.makedirs(args.output_dir, exist_ok=True)
-    sweep(args, benchmark_arguments, generation_config, sweep_arguments, f"{args.output_dir}/sweep_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+    sweep(args, benchmark_arguments, generation_config, sweep_arguments)
