@@ -71,6 +71,9 @@ def sweep(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_c
     print(tabulate.tabulate(rows, header))
 
     # Plot contour plot
+    plot_contour(df, pdf_fname)
+
+def plot_contour(df, pdf_fname):
     ## Prepare grid coordinates (assuming exit_layer and num_speculations are integer indices)
     grid_x, grid_y = np.mgrid[df['exit_layer'].min():df['exit_layer'].max():100j,
                             df['num_speculations'].min():df['num_speculations'].max():100j]
