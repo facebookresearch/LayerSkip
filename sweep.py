@@ -70,6 +70,27 @@ def sweep(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_c
     rows =  [x.values() for x in results]
     print(tabulate.tabulate(rows, header))
 
+    # Plot contour plot
+    ## Prepare grid coordinates (assuming exit_layer and num_speculations are integer indices)
+    grid_x, grid_y = np.mgrid[df['exit_layer'].min():df['exit_layer'].max():100j,
+                            df['num_speculations'].min():df['num_speculations'].max():100j]
+    ## Interpolate missing data
+    grid_z = griddata((df['exit_layer'], df['num_speculations']), df['tokens_per_second'],
+                    (grid_x, grid_y), method='linear')
+    ## Create the contour plot
+    plt.figure(figsize=(10, 6))
+    contour = plt.contourf(grid_x, grid_y, grid_z, levels=20, cmap='viridis')
+    plt.colorbar(contour)
+    ## Overlay the data points
+    plt.scatter(df['exit_layer'], df['num_speculations'], color='black', s=25, zorder=5)
+    plt.title('Tokens Per Second')
+    plt.xlabel('Exit Layer')
+    plt.ylabel('Number of Speculations')
+    ## Save the plot
+    plt.savefig(pdf_fname, format="pdf", dpi=300)
+    ## Show the plot
+    plt.show()
+
 def process_cli_arguments() -> Tuple[arguments.Arguments, BenchmarkArguments, GenerationConfig, SweepArguments]:
     parser = transformers.HfArgumentParser((arguments.Arguments, BenchmarkArguments, GenerationConfig, SweepArguments))
     (
