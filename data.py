@@ -30,6 +30,7 @@ class DatasetFormat:
     XSUM_SUMMARIZATION: str = "xsum_summarization"
     HUMAN_EVAL: str = "human_eval"
     CUSTOM_JSONL: str = "custom_jsonl"
+    TOP_v2: str = "top_v2"
 
 
 def LowercaseProcessingFunction(input: str) -> str:
@@ -133,6 +134,17 @@ def prepare_human_eval() -> List[EvaluationExample]:
         )
     return evaluation_data_points
 
+def prepare_top_v2() -> List[EvaluationExample]:
+    evaluation_data_points = []
+    for data_point in load_dataset('WillHeld/top_v2', split='test'):
+        evaluation_data_points.append(
+            EvaluationExample(
+                input=data_point["utterance"],
+                output=data_point["semantic_parse"],
+            )
+        )
+    return evaluation_data_points
+
 def prepare_custom(data_path: str, prompt_field: str = "prompt", response_field: str = "response") -> List[EvaluationExample]:
     evaluation_data_points = []
     for _, data_point in pd.read_json(data_path, lines=True).iterrows():
@@ -166,6 +178,8 @@ def get_data(
         evaluation_data_points = prepare_human_eval()
     elif dataset == DatasetFormat.CUSTOM_JSONL:
         evaluation_data_points = prepare_custom(data_path, prompt_field=prompt_field, response_field=response_field)
+    elif dataset == DatasetFormat.TOP_v2:
+        evaluation_data_points = prepare_top_v2()
     else:
         raise NotImplementedError(f"Unknown dataset format {dataset}")
 
