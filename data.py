@@ -139,7 +139,7 @@ def prepare_top_v2() -> List[EvaluationExample]:
     for data_point in load_dataset('WillHeld/top_v2', split='test'):
         evaluation_data_points.append(
             EvaluationExample(
-                input=data_point["utterance"],
+               input= "[INST] " + data_point["utterance"] +  " [\INST]",
                 output=data_point["semantic_parse"],
             )
         )
