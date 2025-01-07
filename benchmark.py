@@ -75,9 +75,12 @@ class EvaluationMetrics:
                 )
 
         for metric in self.acceptance_rate.values():
-            acceptance_rate = torch.tensor(
-                generation_result.generation_strategy_result.acceptance_rate or -1
-            )
+            if generation_result.generation_strategy_result.acceptance_rate is None:
+                acceptance_rate = torch.tensor(0)
+            else:
+                acceptance_rate = torch.tensor(
+                    generation_result.generation_strategy_result.acceptance_rate
+                )
             metric.update(acceptance_rate)
 
         for metric in self.total_time.values():
