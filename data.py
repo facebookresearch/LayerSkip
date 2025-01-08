@@ -30,7 +30,7 @@ class DatasetFormat:
     XSUM_SUMMARIZATION: str = "xsum_summarization"
     HUMAN_EVAL: str = "human_eval"
     CUSTOM_JSONL: str = "custom_jsonl"
-    TOP_v2: str = "top_v2"
+    TOP_V2: str = "top_v2"
 
 
 def apply_template(message:str, template:str) -> str:
@@ -146,7 +146,7 @@ def prepare_xsum_summarization_format(n_shot: int = 0, seed: int = 42, template:
 def prepare_human_eval(template: str = None) -> List[EvaluationExample]:
     evaluation_data_points = []
     for data_point in load_dataset('openai_humaneval', split='test'):
-       prompt = apply_template(message=data_point["prompt"], template=template) 
+        prompt = apply_template(message=data_point["prompt"], template=template) 
         evaluation_data_points.append(
             EvaluationExample(
                 input=prompt,
@@ -202,7 +202,7 @@ def get_data(
         evaluation_data_points = prepare_human_eval()
     elif dataset == DatasetFormat.CUSTOM_JSONL:
         evaluation_data_points = prepare_custom(data_path, prompt_field=prompt_field, response_field=response_field)
-    elif dataset == DatasetFormat.TOP_v2:
+    elif dataset == DatasetFormat.TOP_V2:
         evaluation_data_points = prepare_top_v2()
     else:
         raise NotImplementedError(f"Unknown dataset format {dataset}")
