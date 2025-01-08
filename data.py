@@ -30,6 +30,23 @@ class DatasetFormat:
     XSUM_SUMMARIZATION: str = "xsum_summarization"
     HUMAN_EVAL: str = "human_eval"
     CUSTOM_JSONL: str = "custom_jsonl"
+    TOP_V2: str = "top_v2"
+
+
+def apply_template(message:str, template:str) -> str:
+    """
+    Applies a template to a given message.
+    
+    Parameters:
+        message (str): The message to insert into the template.
+        template (str): The template with a placeholder for the message in `{message}`.
+        
+    Returns:
+        str: The formatted message with the template applied.
+    """
+    if template is None:
+        return message
+    return template.format(message=message) 
 
 
 def LowercaseProcessingFunction(input: str) -> str:
@@ -37,7 +54,7 @@ def LowercaseProcessingFunction(input: str) -> str:
 
 
 # TODO: fix or remove TOPv2 benchmarking
-def prepare_evaluation_examples_chat_format(data_path: str) -> List[EvaluationExample]:
+def prepare_evaluation_examples_chat_format(data_path: str, template: str = None) -> List[EvaluationExample]:
     SINGLE_TURN_TEMPLATE: str = "\n[{role}]\n{message}\n[/{role}]"
     evaluation_data_points = []
 
@@ -54,10 +71,11 @@ def prepare_evaluation_examples_chat_format(data_path: str) -> List[EvaluationEx
         i: int = 0
         while i < len(json_line["data"]):
             if json_line["data"][i]["role"] == "PARSER":
+                prompt = apply_template(message=stringify_conversation(json_line["data"][1:i]) + "\n[PARSER]\n", 
+                                        template=template) 
                 evaluation_data_points.append(
                     EvaluationExample(
-                        input=stringify_conversation(json_line["data"][1:i])
-                        + "\n[PARSER]\n",
+                        input=prompt,
                         output=stringify_conversation([json_line["data"][i]]),
                     )
                 )
@@ -65,20 +83,21 @@ def prepare_evaluation_examples_chat_format(data_path: str) -> List[EvaluationEx
     return evaluation_data_points
 
 
-def prepare_cnn_dm_lm_format() -> List[EvaluationExample]:
+def prepare_cnn_dm_lm_format(template: str = None) -> List[EvaluationExample]:
     evaluation_data_points = []
     for data_point in load_dataset("cnn_dailymail", "3.0.0")["test"]:
         words = data_point["article"].split()
+        prompt = apply_template(message=" ".join(words[:PREFIX_LENGTH]), template=template)
         evaluation_data_points.append(
             EvaluationExample(
-                input=" ".join(words[:PREFIX_LENGTH]),
+                input=prompt,
                 output=" ".join(words[PREFIX_LENGTH:]),
             )
         )
     return evaluation_data_points
 
 
-def prepare_cnn_dm_summarization_format(n_shot: int = 0, seed: int = 42) -> List[EvaluationExample]:
+def prepare_cnn_dm_summarization_format(n_shot: int = 0, seed: int = 42, template: str = None) -> List[EvaluationExample]:
     prompt_shots = ""
     if n_shot > 0:
         prompt_keys=["article", "highlights"]
@@ -92,15 +111,16 @@ def prepare_cnn_dm_summarization_format(n_shot: int = 0, seed: int = 42) -> List
     for data_point in load_dataset("cnn_dailymail", name="3.0.0", split="test"):
         article = data_point["article"]
         highlights = data_point["highlights"]
+        prompt = apply_template(message=prompt_shots + f"Article: {article}\nSummary:", template=template) 
         evaluation_data_points.append(
             EvaluationExample(
-                input=prompt_shots + f"Article: {article}\nSummary:",
+                input=prompt,
                 output=f" {highlights}",
             )
         )
     return evaluation_data_points
 
-def prepare_xsum_summarization_format(n_shot: int = 0, seed: int = 42) -> List[EvaluationExample]:
+def prepare_xsum_summarization_format(n_shot: int = 0, seed: int = 42, template: str = None) -> List[EvaluationExample]:
     prompt_shots = ""
     if n_shot > 0:
         prompt_keys=["document", "summary"]
@@ -114,31 +134,47 @@ def prepare_xsum_summarization_format(n_shot: int = 0, seed: int = 42) -> List[E
     for data_point in load_dataset('xsum', split='test'):
         article = data_point["document"]
         highlights = data_point["summary"]
+        prompt = apply_template(message=prompt_shots + f"Article: {article}\nSummary:", template=template) 
         evaluation_data_points.append(
             EvaluationExample(
-                input=prompt_shots + f"Article: {article}\nSummary:",
+                input=prompt,
                 output=f" {highlights}",
             )
         )
     return evaluation_data_points
 
-def prepare_human_eval() -> List[EvaluationExample]:
+def prepare_human_eval(template: str = None) -> List[EvaluationExample]:
     evaluation_data_points = []
     for data_point in load_dataset('openai_humaneval', split='test'):
+        prompt = apply_template(message=data_point["prompt"], template=template) 
         evaluation_data_points.append(
             EvaluationExample(
-                input=data_point["prompt"],
+                input=prompt,
                 output=data_point["canonical_solution"],
             )
         )
     return evaluation_data_points
 
-def prepare_custom(data_path: str, prompt_field: str = "prompt", response_field: str = "response") -> List[EvaluationExample]:
+def prepare_top_v2(template: str = None) -> List[EvaluationExample]:
     evaluation_data_points = []
-    for _, data_point in pd.read_json(data_path, lines=True).iterrows():
+    for data_point in load_dataset('WillHeld/top_v2', split='test'):
+        # apply template if it exists
+        prompt = apply_template(message=data_point["utterance"], template=template)
         evaluation_data_points.append(
             EvaluationExample(
-                input=data_point[prompt_field],
+               input= prompt,
+                output=data_point["semantic_parse"],
+            )
+        )
+    return evaluation_data_points
+
+def prepare_custom(data_path: str, prompt_field: str = "prompt", response_field: str = "response", template: str = None) -> List[EvaluationExample]:
+    evaluation_data_points = []
+    for _, data_point in pd.read_json(data_path, lines=True).iterrows():
+        prompt = apply_template(message=data_point[prompt_field], template=template)  
+        evaluation_data_points.append(
+            EvaluationExample(
+                input=prompt,
                 output=data_point[response_field],
             )
         )
@@ -153,19 +189,23 @@ def get_data(
     seed: int = 42,
     prompt_field: str = "prompt",
     response_field: str = "response",
+    template: str = None
 ) -> List[EvaluationExample]:
     if dataset == DatasetFormat.CHAT_FORMAT:
-        evaluation_data_points = prepare_evaluation_examples_chat_format(data_path)
+        evaluation_data_points = prepare_evaluation_examples_chat_format(data_path, template=template)
     elif dataset == DatasetFormat.CNN_DM_SUMMARIZATION:
-        evaluation_data_points = prepare_cnn_dm_summarization_format(n_shot=n_shot, seed=seed)
+        evaluation_data_points = prepare_cnn_dm_summarization_format(n_shot=n_shot, seed=seed, template=template)
     elif dataset == DatasetFormat.XSUM_SUMMARIZATION:
-        evaluation_data_points = prepare_xsum_summarization_format(n_shot=n_shot, seed=seed)
+        evaluation_data_points = prepare_xsum_summarization_format(n_shot=n_shot, seed=seed, template=template)
     elif dataset == DatasetFormat.CNN_DM_LM:
-        evaluation_data_points = prepare_cnn_dm_lm_format()
+        evaluation_data_points = prepare_cnn_dm_lm_format(template)
     elif dataset == DatasetFormat.HUMAN_EVAL:
-        evaluation_data_points = prepare_human_eval()
+        evaluation_data_points = prepare_human_eval(template)
     elif dataset == DatasetFormat.CUSTOM_JSONL:
-        evaluation_data_points = prepare_custom(data_path, prompt_field=prompt_field, response_field=response_field)
+        evaluation_data_points = prepare_custom(data_path, prompt_field=prompt_field, 
+                                                response_field=response_field, template=template)
+    elif dataset == DatasetFormat.TOP_V2:
+        evaluation_data_points = prepare_top_v2(template)
     else:
         raise NotImplementedError(f"Unknown dataset format {dataset}")
 
