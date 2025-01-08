@@ -97,7 +97,7 @@ def prepare_cnn_dm_lm_format(template: str = None) -> List[EvaluationExample]:
     return evaluation_data_points
 
 
-def prepare_cnn_dm_summarization_format(n_shot: int = 0, seed: int = 42) -> List[EvaluationExample]:
+def prepare_cnn_dm_summarization_format(n_shot: int = 0, seed: int = 42, template: str = None) -> List[EvaluationExample]:
     prompt_shots = ""
     if n_shot > 0:
         prompt_keys=["article", "highlights"]
@@ -189,21 +189,23 @@ def get_data(
     seed: int = 42,
     prompt_field: str = "prompt",
     response_field: str = "response",
+    template: str = None
 ) -> List[EvaluationExample]:
     if dataset == DatasetFormat.CHAT_FORMAT:
-        evaluation_data_points = prepare_evaluation_examples_chat_format(data_path)
+        evaluation_data_points = prepare_evaluation_examples_chat_format(data_path, template=template)
     elif dataset == DatasetFormat.CNN_DM_SUMMARIZATION:
-        evaluation_data_points = prepare_cnn_dm_summarization_format(n_shot=n_shot, seed=seed)
+        evaluation_data_points = prepare_cnn_dm_summarization_format(n_shot=n_shot, seed=seed, template=template)
     elif dataset == DatasetFormat.XSUM_SUMMARIZATION:
-        evaluation_data_points = prepare_xsum_summarization_format(n_shot=n_shot, seed=seed)
+        evaluation_data_points = prepare_xsum_summarization_format(n_shot=n_shot, seed=seed, template=template)
     elif dataset == DatasetFormat.CNN_DM_LM:
-        evaluation_data_points = prepare_cnn_dm_lm_format()
+        evaluation_data_points = prepare_cnn_dm_lm_format(template)
     elif dataset == DatasetFormat.HUMAN_EVAL:
-        evaluation_data_points = prepare_human_eval()
+        evaluation_data_points = prepare_human_eval(template)
     elif dataset == DatasetFormat.CUSTOM_JSONL:
-        evaluation_data_points = prepare_custom(data_path, prompt_field=prompt_field, response_field=response_field)
+        evaluation_data_points = prepare_custom(data_path, prompt_field=prompt_field, 
+                                                response_field=response_field, template=template)
     elif dataset == DatasetFormat.TOP_V2:
-        evaluation_data_points = prepare_top_v2()
+        evaluation_data_points = prepare_top_v2(template)
     else:
         raise NotImplementedError(f"Unknown dataset format {dataset}")
 

@@ -48,6 +48,7 @@ class BenchmarkArguments:
     random_shuffle: bool = True
     num_samples: Optional[int] = None
     n_shot: Optional[int] = 0
+    template: Optional[str] = None
 
 @dataclass
 class EvaluationExample:
@@ -177,6 +178,7 @@ def benchmark(
         n_shot=benchmark_arguments.n_shot,
         seed=seed,
         data_path=benchmark_arguments.data_path,
+        template=benchmark_arguments.template,
     )
     metrics = EvaluationMetrics.build_metrics()
     for i, example in enumerate(tqdm(evaluation_set)):
