@@ -33,6 +33,10 @@ class DatasetFormat:
     TOP_V2: str = "top_v2"
 
 
+def get_valid_dataset_formats():
+    # Extract the values of class attributes, excluding internal dunder methods
+    return [value for key, value in DatasetFormat.__dict__.items() if not key.startswith('__')]
+
 def apply_template(message:str, template:str) -> str:
     """
     Applies a template to a given message.
