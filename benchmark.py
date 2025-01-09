@@ -12,6 +12,7 @@ import random
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 import logging
+import sys
 
 import torch
 import transformers
@@ -23,7 +24,7 @@ from torchmetrics.text import BLEUScore, ROUGEScore, EditDistance
 from torcheval.metrics.aggregation.mean import Mean
 from torcheval.metrics.metric import Metric
 
-from data import get_data, LowercaseProcessingFunction
+from data import get_data, LowercaseProcessingFunction, get_valid_dataset_formats
 from generate import load_model_and_tokenizer, setup
 from utils import ROUGEScoreWrapper
 
@@ -230,17 +231,15 @@ def main(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_co
 
 def process_cli_arguments() -> Tuple[arguments.Arguments, BenchmarkArguments, GenerationConfig]:
     parser = transformers.HfArgumentParser((arguments.Arguments, BenchmarkArguments, GenerationConfig))
-    (
-        general_arguments,
-        benchmark_arguments,
-        generation_config,
-        _remaining,
-    ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
+    general_arguments, benchmark_arguments, generation_config = parser.parse_args_into_dataclasses(return_remaining_strings=False)
 
+    assert benchmark_arguments.dataset in get_valid_dataset_formats(), f"{benchmark_arguments.dataset} is not a supported dataset!"
+    
     if general_arguments.model_args:
         general_arguments.model_args = simple_parse_args_string(general_arguments.model_args)
     else:
-        general_arguments.model_args = {}
+        general_arguments.model_arg = {}
+        
 
     return general_arguments, benchmark_arguments, generation_config
 

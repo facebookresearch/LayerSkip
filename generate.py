@@ -147,8 +147,7 @@ def process_cli_arguments() -> Tuple[Arguments, GenerateArguments, GenerationCon
         general_arguments,
         generate_arguments,
         generation_config,
-        _remaining,
-    ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
+    ) = parser.parse_args_into_dataclasses(return_remaining_strings=False)
 
     if general_arguments.model_args:
         general_arguments.model_args = simple_parse_args_string(general_arguments.model_args)
