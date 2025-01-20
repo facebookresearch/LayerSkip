@@ -69,7 +69,9 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
         trainer.train()
         for step, batch in enumerate(train_dl):
             inputs = tokenizer(
-                batch, return_tensors="pt", padding=True, truncation=True
+                batch,
+                return_tensors="pt",
+                padding=True,
             )
             input_ids = inputs["input_ids"][:, :-1].to(device)
             input_attn_mask = inputs["attention_mask"][:, :-1].to(device)
@@ -121,10 +123,9 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                             labels=labels,
                             vocab_size=trainer.model.vocab_size,
                         )
-                        total_scale = 1.0 + finetune_arguments.early_exit_loss_scale
+                        total_scale = 1.0 + args.early_exit_loss_scale
                         loss = (
-                            1.0 * orig_loss
-                            + finetune_arguments.early_exit_loss_scale * exit_loss
+                            1.0 * orig_loss + args.early_exit_loss_scale * exit_loss
                         ) / total_scale
 
                         eval_loss += loss.item()
@@ -151,47 +152,46 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                 logger.info(f"Saved checkpoint to {checkpoint_path}")
 
 
-def main(finetune_arguments):
+def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    tokenizer = AutoTokenizer.from_pretrained(finetune_arguments.ckpt)
-    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer = AutoTokenizer.from_pretrained(args.ckpt)
+    tokenizer.add_special_tokens({"pad_token": "<pad>"})  # Add pad token
 
-    model = AutoModelForCausalLM.from_pretrained(finetune_arguments.ckpt)
+    tokenizer.add_bos_token = True  # This defaults to True
+    tokenizer.add_eos_token = True  # This defaults to False, setting it to True will add eos token to each sample
+
+    model = AutoModelForCausalLM.from_pretrained(args.ckpt)
 
     trainer = LayerSkipModel(model=model)
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=finetune_arguments.lr)
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
 
-    train_ds = load_dataset(finetune_arguments.ds_ckpt, split="train")
-    val_ds = load_dataset(finetune_arguments.ds_ckpt, split="eval")
+    train_ds = load_dataset(args.ds_ckpt, split="train")
+    val_ds = load_dataset(args.ds_ckpt, split="eval")
 
-    collate_fn_with_template = partial(collate_fn, template=finetune_arguments.template)
+    collate_fn_with_template = partial(collate_fn, template=args.template)
     train_dl = DataLoader(
         train_ds,
-        batch_size=finetune_arguments.batch_size,
+        batch_size=args.batch_size,
         collate_fn=collate_fn_with_template,
     )
     val_dl = DataLoader(
         val_ds,
-        batch_size=finetune_arguments.batch_size,
+        batch_size=args.batch_size,
         collate_fn=collate_fn_with_template,
     )
 
     trainer.to(device)
     trainer.train()
 
-    train_and_eval(
-        train_dl, val_dl, tokenizer, device, trainer, optimizer, finetune_arguments
-    )
+    train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args)
 
 
 def process_cli_arguments():
     parser = HfArgumentParser((FineTuneArguments))
-    finetune_arguments = parser.parse_args_into_dataclasses(
-        return_remaining_strings=False
-    )
-    return finetune_arguments
+    args = parser.parse_args_into_dataclasses(return_remaining_strings=False)
+    return args
 
 
 if __name__ == "__main__":
-    finetune_arguments = process_cli_arguments()
-    main(finetune_arguments)
+    args = process_cli_arguments()
+    main(args)
