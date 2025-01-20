@@ -155,7 +155,7 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
 def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tokenizer = AutoTokenizer.from_pretrained(args.ckpt)
-    tokenizer.add_special_tokens({"pad_token": "<pad>"})  # Add pad token
+    tokenizer.pad_token = tokenizer.eos_token
 
     tokenizer.add_bos_token = True  # This defaults to True
     tokenizer.add_eos_token = True  # This defaults to False, setting it to True will add eos token to each sample
@@ -187,9 +187,9 @@ def main(args):
 
 
 def process_cli_arguments():
-    parser = HfArgumentParser((FineTuneArguments))
+    parser = HfArgumentParser(FineTuneArguments)
     args = parser.parse_args_into_dataclasses(return_remaining_strings=False)
-    return args
+    return args[0]
 
 
 if __name__ == "__main__":
