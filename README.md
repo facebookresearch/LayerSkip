@@ -45,6 +45,27 @@ In order to access each model:
 
 Once you run those steps, the commands below to run the LayerSkip checkpoints should work.
 
+## Fine Tune
+
+To train any supported HuggingFace model with the LayerSkip approach:
+```bash
+torchrun finetune_layerskip.py \
+    --ckpt facebook/llama2-7B \
+    --ds_ckpt some_dataset \
+    --template "###INST: {utterance}\n\n###RES: {semantic_parse}" \
+    --lr 1e-4 \
+    --batch_size 8 \
+    --epochs 3 \
+    --early_exit_loss_scale 1.0 \
+    --eval_freq 50 \
+    --output_dir ./checkpoints
+```
+  
+Tips: 
+- **Adjust your hyperparameters**: Play with `--early_exit_loss_scale` to increase or decrease the importance of the early-exit path.  
+- **Monitor speed & memory usage**: Even during training, certain intermediate layers might lead to more efficient training if configured properly.  
+- **Run `python finetune_layerskip.py --help`** to see all command-line options.
+
 ## Generate
 
 To run one of our models in interactive mode using regular autoregressive decoding:
