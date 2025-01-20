@@ -1,9 +1,31 @@
+import logging
+from dataclasses import dataclass
+from functools import partial
+
 import torch
 from torch import nn
+from torch.nn import functional
 from torch.utils.data import DataLoader
+
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM
-from transformers import AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FineTuneArguments:
+    ckpt: str = "meta-llama/Llama-3.2-1B"
+    ds_ckpt: str = "WillHeld/top_v2"
+    template: str = "###INST: {utterance}\n\n###RES: {semantic_parse}"
+    lr: float = 1e-3
+    batch_size: int = 8
+    epochs: int = 1
+    eval_freq: int = 100
+    early_exit_loss_scale: float = 1.0
+    save_steps: int = 500
+    output_dir: str = "./checkpoints"
 
 
 class LayerSkipModel(nn.Module):
@@ -37,43 +59,18 @@ class LayerSkipModel(nn.Module):
         return logits, exit_logits
 
 
-def collate_fn(batch):
-    formatted_batch = [
-        f"###INST: {sample['utterance']}\n\n###RES: {sample['semantic_parse']}"
-        for sample in batch
-    ]
-    return formatted_batch
+def collate_fn(batch, template):
+    return [template.format(**sample) for sample in batch]
 
 
-if __name__ == "__main__":
-    ckpt = "meta-llama/Llama-3.2-1B"
-    ds_ckpt = "WillHeld/top_v2"
-    lr = 1e-3
-    batch_size = 8
-    epochs = 1
-    device = "cuda"
-
-    tokenizer = AutoTokenizer.from_pretrained(ckpt)
-    tokenizer.pad_token = tokenizer.eos_token
-
-    model = AutoModelForCausalLM.from_pretrained(ckpt)
-
-    trainer = LayerSkipModel(model=model)
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=lr)
-
-    train_ds = load_dataset(ds_ckpt, split="train")
-    val_ds = load_dataset(ds_ckpt, split="eval")
-
-    train_dl = DataLoader(train_ds, batch_size=batch_size, collate_fn=collate_fn)
-    val_dl = DataLoader(val_ds, batch_size=batch_size, collate_fn=collate_fn)
-
-    trainer.to(device)
-    trainer.train()
-
-    for idx in range(epochs):
-        for idx, batch in enumerate(train_dl):
-            inputs = tokenizer(batch, return_tensors="pt", padding=True)
-
+def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args):
+    global_step = 0
+    for epoch in range(args.epochs):
+        trainer.train()
+        for step, batch in enumerate(train_dl):
+            inputs = tokenizer(
+                batch, return_tensors="pt", padding=True, truncation=True
+            )
             input_ids = inputs["input_ids"][:, :-1].to(device)
             input_attn_mask = inputs["attention_mask"][:, :-1].to(device)
 
@@ -88,17 +85,22 @@ if __name__ == "__main__":
             exit_loss = trainer.model.loss_function(
                 logits=exit_logits, labels=labels, vocab_size=trainer.model.vocab_size
             )
-            loss = orig_loss + exit_loss
+            total_scale = 1.0 + args.early_exit_loss_scale
+            total_loss = (
+                1.0 * orig_loss + args.early_exit_loss_scale * exit_loss
+            ) / total_scale
 
             optimizer.zero_grad()
-            loss.backward()
+            total_loss.backward()
             optimizer.step()
+            global_step += 1
 
-            if idx % 100 == 0:
-                eval_loss = 0
+            if global_step % args.eval_freq == 0:
                 trainer.eval()
+                eval_loss = 0.0
+                num_val_steps = 0
                 with torch.no_grad():
-                    for val_idx, val_batch in enumerate(val_dl):
+                    for val_batch in val_dl:
                         inputs = tokenizer(val_batch, return_tensors="pt", padding=True)
 
                         input_ids = inputs["input_ids"][:, :-1].to(device)
@@ -119,11 +121,77 @@ if __name__ == "__main__":
                             labels=labels,
                             vocab_size=trainer.model.vocab_size,
                         )
-                        loss = orig_loss + exit_loss
+                        total_scale = 1.0 + finetune_arguments.early_exit_loss_scale
+                        loss = (
+                            1.0 * orig_loss
+                            + finetune_arguments.early_exit_loss_scale * exit_loss
+                        ) / total_scale
 
                         eval_loss += loss.item()
+                        num_val_steps += 1
 
-                print(
-                    f"Epoch: {idx}, Train Loss: {loss.item():0.2f} Val Loss: {eval_loss / (val_idx - 1):0.2f}"
+                logger.info(
+                    f"Epoch {epoch}, Step {global_step}: "
+                    f"Train Loss: {total_loss.item():.4f}, "
+                    f"Val Loss: {eval_loss / num_val_steps:.4f}"
                 )
                 trainer.train()
+
+            if global_step % args.save_steps == 0:
+                checkpoint_path = f"{args.output_dir}/checkpoint_{global_step}.pt"
+                torch.save(
+                    {
+                        "step": global_step,
+                        "epoch": epoch,
+                        "model_state_dict": trainer.model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                    },
+                    checkpoint_path,
+                )
+                logger.info(f"Saved checkpoint to {checkpoint_path}")
+
+
+def main(finetune_arguments):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    tokenizer = AutoTokenizer.from_pretrained(finetune_arguments.ckpt)
+    tokenizer.pad_token = tokenizer.eos_token
+
+    model = AutoModelForCausalLM.from_pretrained(finetune_arguments.ckpt)
+
+    trainer = LayerSkipModel(model=model)
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=finetune_arguments.lr)
+
+    train_ds = load_dataset(finetune_arguments.ds_ckpt, split="train")
+    val_ds = load_dataset(finetune_arguments.ds_ckpt, split="eval")
+
+    collate_fn_with_template = partial(collate_fn, template=finetune_arguments.template)
+    train_dl = DataLoader(
+        train_ds,
+        batch_size=finetune_arguments.batch_size,
+        collate_fn=collate_fn_with_template,
+    )
+    val_dl = DataLoader(
+        val_ds,
+        batch_size=finetune_arguments.batch_size,
+        collate_fn=collate_fn_with_template,
+    )
+
+    trainer.to(device)
+    trainer.train()
+
+    train_and_eval(
+        train_dl, val_dl, tokenizer, device, trainer, optimizer, finetune_arguments
+    )
+
+
+def process_cli_arguments():
+    parser = HfArgumentParser((FineTuneArguments))
+    finetune_arguments = parser.parse_args_into_dataclasses(
+        return_remaining_strings=False
+    )
+    return finetune_arguments
+
+
+if __name__ == "__main__":
+    finetune_arguments = process_cli_arguments()
+    main(finetune_arguments)
