@@ -2,9 +2,10 @@ import logging
 from dataclasses import dataclass
 from functools import partial
 
+import os
+
 import torch
 from torch import nn
-from torch.nn import functional
 from torch.utils.data import DataLoader
 
 from datasets import load_dataset
@@ -73,19 +74,21 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                 return_tensors="pt",
                 padding=True,
             )
-            input_ids = inputs["input_ids"][:, :-1].to(device)
-            input_attn_mask = inputs["attention_mask"][:, :-1].to(device)
+            input_ids = inputs["input_ids"].to(device)
+            input_attn_mask = inputs["attention_mask"].to(device)
 
-            labels = inputs["input_ids"][:, 1:].to(device)
+            labels = inputs["input_ids"].to(device)
 
             logits, exit_logits = trainer(
                 input_ids=input_ids, attention_mask=input_attn_mask
             )
             orig_loss = trainer.model.loss_function(
-                logits=logits, labels=labels, vocab_size=trainer.model.vocab_size
+                logits=logits, labels=labels, vocab_size=trainer.model.vocab_size,
+                ignore_index=tokenizer.pad_token_id,
             )
             exit_loss = trainer.model.loss_function(
-                logits=exit_logits, labels=labels, vocab_size=trainer.model.vocab_size
+                logits=exit_logits, labels=labels, vocab_size=trainer.model.vocab_size,
+                ignore_index=tokenizer.pad_token_id,
             )
             total_scale = 1.0 + args.early_exit_loss_scale
             total_loss = (
@@ -105,10 +108,10 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                     for val_batch in val_dl:
                         inputs = tokenizer(val_batch, return_tensors="pt", padding=True)
 
-                        input_ids = inputs["input_ids"][:, :-1].to(device)
-                        input_attn_mask = inputs["attention_mask"][:, :-1].to(device)
+                        input_ids = inputs["input_ids"].to(device)
+                        input_attn_mask = inputs["attention_mask"].to(device)
 
-                        labels = inputs["input_ids"][:, 1:].to(device)
+                        labels = inputs["input_ids"].to(device)
 
                         logits, exit_logits = trainer(
                             input_ids=input_ids, attention_mask=input_attn_mask
@@ -117,11 +120,13 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                             logits=logits,
                             labels=labels,
                             vocab_size=trainer.model.vocab_size,
+                            ignore_index=tokenizer.pad_token_id,
                         )
                         exit_loss = trainer.model.loss_function(
                             logits=exit_logits,
                             labels=labels,
                             vocab_size=trainer.model.vocab_size,
+                            ignore_index=tokenizer.pad_token_id,
                         )
                         total_scale = 1.0 + args.early_exit_loss_scale
                         loss = (
@@ -139,6 +144,9 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                 trainer.train()
 
             if global_step % args.save_steps == 0:
+                if not os.path.exists(args.output_dir):
+                    os.makedirs(args.output_dir)
+                
                 checkpoint_path = f"{args.output_dir}/checkpoint_{global_step}.pt"
                 torch.save(
                     {
