@@ -18,13 +18,14 @@ class FineTuneArguments:
     ckpt: str = "meta-llama/Llama-2-7b-hf" # <--- This tokenizer has the add_eos and add_bos feature not 3.2 (be careful)
     ds_ckpt: str = "WillHeld/top_v2"
     template: str = "### Instruction: {utterance}\n ### Response: {semantic_parse}"
-    lr: float = 1e-4
+    lr: float = 2e-5
     batch_size: int = 8
     epochs: int = 1
-    eval_freq: int = 2000
+    eval_freq: int = 5000
     early_exit_loss_scale: float = 1.0
-    save_steps: int = 1000
-    output_dir: str = "./checkpoints"
+    save_steps: int = 5000
+    output_dir: str = "./checkpoints/"
+    hub_id: str = None
 
 args = FineTuneArguments()
 
@@ -105,12 +106,6 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                 eval_loss = 0.0
                 num_val_steps = 0
                 with torch.no_grad():
-                    # prompt = "###INST: {utterance}\n\n###RES: ".format(utterance="What time is my bed time alarm set for?")
-                    # tokenizer.add_eos_token = False # For open ended generation
-                    # inputs = tokenizer(prompt, return_tensors="pt").to(device)
-                    # outputs = trainer.model.generate(**inputs, assistant_early_exit=trainer.early_exit_layer, max_new_tokens=40)
-                    # print(tokenizer.batch_decode(outputs))
-                    # tokenizer.add_eos_token = True # Turn to True for validation and training
                     for val_batch in tqdm(val_dl, total=len(val_dl)):
                         inputs = tokenizer(val_batch, return_tensors="pt", padding=True)
 
@@ -151,10 +146,14 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                 trainer.train()
 
             if global_step % args.save_steps == 0:
-                if not os.path.exists(args.output_dir):
-                    os.makedirs(args.output_dir)
+                step_dir = f"{args.output_dir}/step_{global_step}"
+                os.makedirs(step_dir, exist_ok=True)
 
-                checkpoint_path = f"{args.output_dir}/checkpoint_{global_step}.pt"
+                model_path = f"{step_dir}/model"
+                trainer.model.save_pretrained(model_path)
+                print(f"Saved pretrained model to {model_path}")
+
+                checkpoint_path = f"{step_dir}/checkpoint.pt"
                 torch.save(
                     {
                         "step": global_step,
@@ -164,7 +163,7 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                     },
                     checkpoint_path,
                 )
-                print(f"Saved checkpoint to {checkpoint_path}")
+                print(f"Saved training checkpoint to {checkpoint_path}")
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 tokenizer = AutoTokenizer.from_pretrained(args.ckpt)
@@ -179,8 +178,8 @@ model = AutoModelForCausalLM.from_pretrained(args.ckpt, torch_dtype="bfloat16", 
 trainer = LayerSkipModel(model=model)
 optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
 
-train_ds = load_dataset(args.ds_ckpt, split="train")# load_dataset(args.ds_ckpt, split="train[:1000]")
-val_ds = load_dataset(args.ds_ckpt, split="eval") # load_dataset(args.ds_ckpt, split="eval[:50]")
+train_ds = load_dataset(args.ds_ckpt, split="train")
+val_ds = load_dataset(args.ds_ckpt, split="eval")
 
 collate_fn_with_template = partial(collate_fn, template=args.template)
 train_dl = DataLoader(
@@ -200,5 +199,6 @@ trainer.train()
 
 train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args)
 
-tokenizer.push_to_hub("ariG23498/layer-skip-vanill-2-7b")
-trainer.model.push_to_hub("ariG23498/layer-skip-vanill-2-7b")
+if args.hub_id:
+    tokenizer.push_to_hub(args.hub_id)
+    trainer.model.push_to_hub(args.hub_id)
