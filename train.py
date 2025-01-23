@@ -3,7 +3,6 @@ from functools import partial
 
 import torch
 from torch import nn
-from torch.nn import functional
 from torch.utils.data import DataLoader
 
 from datasets import load_dataset
@@ -13,9 +12,10 @@ from tqdm import tqdm
 
 import os
 
+
 @dataclass
 class FineTuneArguments:
-    ckpt: str = "meta-llama/Llama-2-7b-hf" # <--- This tokenizer has the add_eos and add_bos feature not 3.2 (be careful)
+    ckpt: str = "meta-llama/Llama-2-7b-hf"  # Need to keep a check with `add_eos_token`
     ds_ckpt: str = "WillHeld/top_v2"
     template: str = "### Instruction: {utterance}\n ### Response: {semantic_parse}"
     lr: float = 2e-5
@@ -27,7 +27,6 @@ class FineTuneArguments:
     output_dir: str = "./checkpoints/"
     hub_id: str = None
 
-args = FineTuneArguments()
 
 class LayerSkipModel(nn.Module):
     def __init__(self, model, *args, **kwargs):
@@ -59,6 +58,7 @@ class LayerSkipModel(nn.Module):
 
         return logits, exit_logits
 
+
 def collate_fn(batch, template):
     return [template.format(**sample) for sample in batch]
 
@@ -67,7 +67,7 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
     global_step = 0
     for epoch in range(args.epochs):
         trainer.train()
-        for step, batch in tqdm(enumerate(train_dl), total=len(train_dl)):
+        for _, batch in tqdm(enumerate(train_dl), total=len(train_dl)):
             inputs = tokenizer(
                 batch,
                 return_tensors="pt",
@@ -86,10 +86,14 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                 input_ids=input_ids, attention_mask=input_attn_mask
             )
             orig_loss = trainer.model.loss_function(
-                logits=logits, labels=labels, vocab_size=trainer.model.vocab_size,
+                logits=logits,
+                labels=labels,
+                vocab_size=trainer.model.vocab_size,
             )
             exit_loss = trainer.model.loss_function(
-                logits=exit_logits, labels=labels, vocab_size=trainer.model.vocab_size,
+                logits=exit_logits,
+                labels=labels,
+                vocab_size=trainer.model.vocab_size,
             )
             total_scale = 1.0 + args.early_exit_loss_scale
             total_loss = (
@@ -111,7 +115,9 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
 
                         input_ids = inputs["input_ids"]
                         input_attn_mask = inputs["attention_mask"]
-                        labels = inputs["input_ids"].masked_fill(~input_attn_mask.bool(), -100)
+                        labels = inputs["input_ids"].masked_fill(
+                            ~input_attn_mask.bool(), -100
+                        )
 
                         input_ids = input_ids.to(device)
                         input_attn_mask = input_attn_mask.to(device)
@@ -165,40 +171,55 @@ def train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args
                 )
                 print(f"Saved training checkpoint to {checkpoint_path}")
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-tokenizer = AutoTokenizer.from_pretrained(args.ckpt)
-tokenizer.pad_token = tokenizer.eos_token
 
-# This is only true for llama 2 moedels (check the args for ckpt)
-tokenizer.add_bos_token = True  # This defaults to True
-tokenizer.add_eos_token = True  # This defaults to False, setting it to True will add eos token to each sample
+def main(args):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    tokenizer = AutoTokenizer.from_pretrained(args.ckpt)
+    tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(args.ckpt, torch_dtype="bfloat16", device_map="auto")
+    # This is only true for llama 2 moedels (check the args for ckpt)
+    tokenizer.add_bos_token = True  # This defaults to True
+    tokenizer.add_eos_token = True  # This defaults to False, setting it to True will add eos token to each sample
 
-trainer = LayerSkipModel(model=model)
-optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
+    model = AutoModelForCausalLM.from_pretrained(
+        args.ckpt, torch_dtype="bfloat16", device_map="auto"
+    )
 
-train_ds = load_dataset(args.ds_ckpt, split="train")
-val_ds = load_dataset(args.ds_ckpt, split="eval")
+    trainer = LayerSkipModel(model=model)
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
 
-collate_fn_with_template = partial(collate_fn, template=args.template)
-train_dl = DataLoader(
-    train_ds,
-    batch_size=args.batch_size,
-    collate_fn=collate_fn_with_template,
-    shuffle=True,
-)
-val_dl = DataLoader(
-    val_ds,
-    batch_size=args.batch_size,
-    collate_fn=collate_fn_with_template,
-)
+    train_ds = load_dataset(args.ds_ckpt, split="train")
+    val_ds = load_dataset(args.ds_ckpt, split="eval")
 
-trainer.to(device)
-trainer.train()
+    collate_fn_with_template = partial(collate_fn, template=args.template)
+    train_dl = DataLoader(
+        train_ds,
+        batch_size=args.batch_size,
+        collate_fn=collate_fn_with_template,
+        shuffle=True,
+    )
+    val_dl = DataLoader(
+        val_ds,
+        batch_size=args.batch_size,
+        collate_fn=collate_fn_with_template,
+    )
 
-train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args)
+    trainer.to(device)
+    trainer.train()
 
-if args.hub_id:
-    tokenizer.push_to_hub(args.hub_id)
-    trainer.model.push_to_hub(args.hub_id)
+    train_and_eval(train_dl, val_dl, tokenizer, device, trainer, optimizer, args)
+
+    if args.hub_id:
+        tokenizer.push_to_hub(args.hub_id)
+        trainer.model.push_to_hub(args.hub_id)
+
+
+def process_cli_arguments():
+    parser = HfArgumentParser((FineTuneArguments))
+    args = parser.parse_args_into_dataclasses(return_remaining_strings=False)
+    return args
+
+
+if __name__ == "__main__":
+    args = process_cli_arguments()
+    main(args)
