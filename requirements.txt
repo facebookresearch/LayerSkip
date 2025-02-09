@@ -14,3 +14,4 @@ lm_eval==0.4.5
 pytest==8.3.3
 pytest-mock==3.14.0
 matplotlib==3.10.0
+trl==0.13.0
