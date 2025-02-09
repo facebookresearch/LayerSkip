@@ -42,7 +42,7 @@ def test_single_step_speculation_handling_eos(model_and_config):
     input_ids = torch.tensor([[tokenizer.encode("my")[1]]], device=model.device)
     input_ids_list = input_ids.tolist()
     
-    eos_token_id = tokenizer.eos_token_id
+    eos_token_ids = [tokenizer.eos_token_id]
     output_ids = []
     past_key_values = None
     num_speculations = 1
@@ -54,7 +54,7 @@ def test_single_step_speculation_handling_eos(model_and_config):
         output_ids=output_ids,
         num_speculations=num_speculations,
         past_key_values=past_key_values,
-        eos_token_id=eos_token_id,
+        eos_token_ids=eos_token_ids,
         calls=0,
         exit_layer=generation_config.exit_layer,
         sample=generation_config.sample,
@@ -70,10 +70,10 @@ def test_generate_token_ids_with_logit_processors(model_and_config):
     model, tokenizer, config = model_and_config
     strategy = SelfSpeculativeGenerationStrategy()
     input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device=model.device)
-    eos_token_id = tokenizer.eos_token_id
+    eos_token_ids = [tokenizer.eos_token_id]
     logits_processor = lambda inputs, logits: torch.log(torch.softmax(logits, dim=-1))
 
-    result = strategy.generate_token_ids(model, input_ids.tolist(), eos_token_id, config, logits_processors=logits_processor)
+    result = strategy.generate_token_ids(model, input_ids.tolist(), eos_token_ids, config, logits_processors=logits_processor)
 
     assert len(result.predicted_tokens) > 0
-    assert eos_token_id in result.predicted_tokens or len(result.predicted_tokens) == config.max_steps
+    assert tokenizer.eos_token_id in result.predicted_tokens or len(result.predicted_tokens) == config.max_steps
