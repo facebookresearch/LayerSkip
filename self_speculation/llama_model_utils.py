@@ -253,13 +253,13 @@ def forward_early(
         past_key_values_length,
     )
 
-    (hidden_states, ) = inputs_embeds
+    hidden_states = inputs_embeds
 
     # create position embeddings to be shared across the decoder layers
     position_embeddings = model.model.rotary_emb(hidden_states, position_ids)
 
     for decoder_layer in model.model.layers[:exit_layer]:
-        hidden_states = decoder_layer(
+        (hidden_states, ) = decoder_layer(
             hidden_states,
             attention_mask=attention_mask,
             position_ids=position_ids,
