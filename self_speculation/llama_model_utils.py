@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple
 
 import torch
 import transformers
+import math
 
 @dataclass
 class ForwardResult:
@@ -388,4 +389,105 @@ def forward_remainder(
 
     return ForwardResult(
         logits=logits, past_key_values=past_key_values, exit_query_cache=exit_query_cache
+    )
+
+def forward_with_layerdrop(
+    model: transformers.LlamaForCausalLM,
+    input_ids: torch.Tensor,
+    past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
+    dropout_rate: float = 0.2,
+    time_step: int = 0,
+    max_time_steps: int = 1,
+    seed: Optional[int] = None,
+) -> ForwardResult:
+    """Forward pass with LayerDrop: randomly dropping layers based on the paper's formula.
+    
+    Args:
+        model: LlamaForCausalLM model
+        input_ids: Input token ids
+        past_key_values: KV cache from previous forward passes
+        dropout_rate: Maximum dropout rate (pmax in the paper)
+        time_step: Current iteration/time step for curriculum
+        max_time_steps: Total number of time steps for curriculum scaling
+        seed: Random seed for reproducibility
+    """
+    device = input_ids.device
+    batch_size, seq_length = input_ids.shape
+
+    # Setup position ids and attention mask (similar to forward())
+    seq_length_with_past = seq_length
+    past_key_values_length = 0
+    if past_key_values is not None:
+        past_key_values_length = past_key_values[0][0].shape[2]
+        seq_length_with_past = seq_length_with_past + past_key_values_length
+    past_key_values = transformers.cache_utils.DynamicCache.from_legacy_cache(past_key_values)
+
+    position_ids = torch.arange(
+        past_key_values_length,
+        seq_length + past_key_values_length,
+        dtype=torch.long,
+        device=device,
+    )
+    position_ids = position_ids.unsqueeze(0).view(-1, seq_length)
+    attention_mask = input_ids.new_ones(
+        (batch_size, seq_length_with_past),
+        dtype=torch.bool,
+    )
+    inputs_embeds = model.model.embed_tokens(input_ids)
+    attention_mask = _prepare_decoder_attention_mask(
+        model,
+        attention_mask,
+        (batch_size, seq_length),
+        inputs_embeds,
+        past_key_values_length,
+    )
+
+    # Set seed for reproducibility if provided
+    if seed is not None:
+        torch.manual_seed(seed)
+    
+    # Initial embeddings
+    hidden_states = inputs_embeds
+    
+    # Calculate time-dependent scaling S(t)
+    # For fine-tuning or inference, we use S(t) = 1
+    # For pre-training, we would use the exponential curriculum
+    if max_time_steps > 1:
+        # Exponential curriculum
+        s_t = math.exp(time_step * math.log(2) / (max_time_steps - 1)) - 1
+    else:
+        s_t = 1.0
+    
+    # Process through layers with LayerDrop
+    total_layers = len(model.model.layers)
+    for layer_idx, decoder_layer in enumerate(model.model.layers):
+        # Calculate per-layer dropout scaling D(l)
+        d_l = math.exp(layer_idx * math.log(2) / (total_layers - 1)) - 1
+        
+        # Calculate dropout probability for this layer
+        layer_dropout_prob = s_t * d_l * dropout_rate
+        
+        # Bernoulli mask: 1 = keep layer, 0 = drop layer
+        if torch.rand(1).item() < layer_dropout_prob:
+            # Skip this layer
+            continue
+            
+        # Process layer normally
+        hidden_states, past_key_values = decoder_layer(
+            hidden_states,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+            past_key_value=past_key_values,
+            output_attentions=False,
+            use_cache=True,
+            padding_mask=None,
+        )
+
+    # Final norm and head
+    hidden_states = model.model.norm(hidden_states)
+    logits = model.lm_head(hidden_states)
+
+    return ForwardResult(
+        logits=logits, 
+        past_key_values=past_key_values.to_legacy_cache()
     )

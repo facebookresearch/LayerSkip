@@ -36,6 +36,7 @@ class AutoRegressiveGenerationStrategy(GenerationStrategy):
         """Variant of `generate` with inputs/outputs formatted as token_ids."""
         past_key_values = None
 
+        # input_ids: torch.Tensor = torch.tensor([input_ids]).to('mps')
         input_ids: torch.Tensor = torch.tensor([input_ids]).to(model.device)
         output_ids: List[int] = []
 

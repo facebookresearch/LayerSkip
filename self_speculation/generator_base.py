@@ -43,6 +43,8 @@ class GenerationConfig:
     no_repeat_ngram_size: int = None
     stop_words: List[str] = None
     stop_token_ids: List[int] = None
+    dropout_rate: float = 0.0  # Maximum dropout rate for LayerDrop
+    layerdrop_seed: Optional[int] = None  # Random seed for reproducible LayerDrop
 
     def __post_init__(self):
         if self.stop_token_ids is None:

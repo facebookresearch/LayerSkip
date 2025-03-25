@@ -19,9 +19,13 @@ raw_types = Union[str, float, int, Dict, List, Tuple]
 @dataclass
 class Arguments:
     model: str
-    model_args: Optional[str] = None
+    model_args: Optional[Dict[str, Any]] = None
+    dist_url: str = "env://"
+    world_size: int = 1
+    rank: int = 0
     seed: Optional[int] = 42
     output_dir: str = "./logs"
+    distributed: bool = False
 
 
 # Source: https://github.com/EleutherAI/lm-evaluation-harness/blob/a9eaaf46f1e246e5ce090e37f2f99fe1cfe5a919/lm_eval/utils.py

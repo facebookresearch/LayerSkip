@@ -39,7 +39,8 @@ def test_single_step_speculation_handling_eos(model_and_config):
 
     model, tokenizer, generation_config = model_and_config
     strategy = SelfSpeculativeGenerationStrategy()
-    input_ids = torch.tensor([[tokenizer.encode("my")[1]]], device=model.device)
+    # input_ids = torch.tensor([[tokenizer.encode("my")[1]]], device=model.device)
+    input_ids = torch.tensor([[tokenizer.encode("my")[1]]], device='mps')
     input_ids_list = input_ids.tolist()
     
     eos_token_ids = [tokenizer.eos_token_id]
@@ -69,7 +70,8 @@ def test_generate_token_ids_with_logit_processors(model_and_config):
     """Test application of logits processors during token generation."""
     model, tokenizer, config = model_and_config
     strategy = SelfSpeculativeGenerationStrategy()
-    input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device=model.device)
+    # input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device=model.device)
+    input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device='mps')
     eos_token_ids = [tokenizer.eos_token_id]
     logits_processor = lambda inputs, logits: torch.log(torch.softmax(logits, dim=-1))
 

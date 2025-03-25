@@ -28,6 +28,7 @@ from self_speculation.generator_base import (
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from generate import load_model_and_tokenizer, setup
 from benchmark import EvaluationMetrics
+from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
 
 @dataclass
 class EvalArguments:
@@ -402,6 +403,11 @@ def main(args: Arguments, eval_arguments: EvalArguments, generation_config: Gene
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
         generation_strategy: GenerationStrategy = SelfSpeculativeGenerationStrategy()
+    elif generation_config.generation_strategy == "layerdrop":
+        generation_strategy: GenerationStrategy = LayerDropGenerationStrategy(
+            dropout_rate=generation_config.dropout_rate,
+            seed=generation_config.layerdrop_seed or args.seed
+        )
     else:
         raise Exception(
             f"Unsupported generation strategy: {generation_config.generation_strategy}"

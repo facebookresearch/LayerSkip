@@ -38,7 +38,8 @@ def test_generate_token_ids_with_stopping_criteria(model_and_config):
     """Test stopping criteria application to halt generation early."""
     model, tokenizer, config = model_and_config
     strategy = AutoRegressiveGenerationStrategy()
-    input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device=model.device)
+    # input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device=model.device)
+    input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device='mps')
     eos_token_ids = [tokenizer.eos_token_id]
     stopping_criteria = lambda inputs, scores: torch.tensor([True])  # Stop immediately
 
@@ -51,7 +52,8 @@ def test_generate_token_ids_with_logit_processors(model_and_config):
     """Test application of logits processors during token generation."""
     model, tokenizer, config = model_and_config
     strategy = AutoRegressiveGenerationStrategy()
-    input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device=model.device)
+    # input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device=model.device)
+    input_ids = torch.tensor([tokenizer.encode("my")[1], tokenizer.encode("name")[1], tokenizer.encode("is")[1]], device='mps')
     eos_token_ids = [tokenizer.eos_token_ids]
     logits_processor = lambda inputs, logits: torch.log(torch.softmax(logits, dim=-1))
 

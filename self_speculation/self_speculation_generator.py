@@ -42,6 +42,7 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         past_key_values = None
 
         input_ids_list = input_ids
+        # input_ids: torch.Tensor = torch.tensor([input_ids_list]).to('mps')
         input_ids: torch.Tensor = torch.tensor([input_ids_list]).to(model.device)
         output_ids: List[int] = []
 
@@ -99,31 +100,171 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
         )
 
     # TODO: remove calls, input_ids_list, rely on generation config
+    # def single_step_speculation(
+    #     self,
+    #     model: transformers.LlamaForCausalLM,
+    #     input_ids: torch.Tensor,
+    #     input_ids_list: List[int],
+    #     output_ids: List[int],
+    #     num_speculations: int,
+    #     past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
+    #     eos_token_ids: List[int],
+    #     calls: int,
+    #     exit_layer: int,
+    #     sample: Optional[bool] = False,
+    #     temperature: Optional[float] = 0.7,
+    #     top_k: Optional[int] = 50,
+    #     top_p: Optional[float] = 0.95,
+    #     logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
+    #     stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
+    #     streamer: Optional[transformers.TextStreamer] = None
+    # ):
+    #     zero_division_count = 0
+        
+    #     prompt_length: int = input_ids.size(1)
+    #     draft_input_ids = input_ids.clone()
+    #     draft_output_ids: List[int] = []
+    #     if sample:
+    #         draft_probabilities: List[torch.Tensor] = []
+    #     exit_query_cache = None
+        
+    #     for _ in range(num_speculations):
+    #         draft_result = forward_early(
+    #             model,
+    #             draft_input_ids,
+    #             past_key_values,
+    #             exit_layer,
+    #             exit_query_cache,
+    #         )
+    #         past_key_values = draft_result.past_key_values
+    #         exit_query_cache = draft_result.exit_query_cache
+    #         draft_logits = draft_result.logits
+    #         if logits_processors:
+    #             draft_logits = logits_processors(draft_input_ids, draft_logits)
+    #         draft_next_token, draft_next_prob = decode_next_token(logits=draft_logits, token_idx=-1, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
+    #         draft_next_token = draft_next_token.item()
+    #         draft_output_ids.append(draft_next_token)
+    #         if sample:
+    #             draft_probabilities.append(draft_next_prob)
+    #         draft_input_ids = torch.tensor([[draft_next_token]]).to(draft_input_ids)
+    #         if draft_next_token in eos_token_ids:
+    #             # break out of loop when we get an EOS token
+    #             break
+
+    #     # input_ids (1 x T_p) and draft_output_ids (1 x T_d) are concatenated together to make
+    #     # 1 x (T_d  + T_p)
+    #     draft_output_ids = torch.tensor(draft_output_ids).unsqueeze(0).to(input_ids)
+    #     prefill_token_ids = torch.cat(
+    #         [input_ids, draft_output_ids],
+    #         dim=-1,
+    #     )
+
+    #     if streamer:
+    #         if isinstance(streamer, SpeculativeTextStreamer):
+    #             print(colorama.Fore.LIGHTMAGENTA_EX, end="")
+    #             streamer.put(draft_output_ids, is_draft=True)
+
+    #     # logits: 1 x (T_d  + T_p) x V
+    #     verify_results = forward_remainder(
+    #         model,
+    #         prefill_token_ids.int(),
+    #         past_key_values,
+    #         exit_layer,
+    #         exit_query_cache,
+    #     )
+    #     logits = verify_results.logits
+    #     if logits_processors:
+    #         logits = logits_processors(prefill_token_ids, logits)
+    #     past_key_values = verify_results.past_key_values
+    #     # only select the logits relevant to what the draft has outputted.
+    #     # verification_logits: 1 x T_d x V
+    #     verification_logits = logits[:, prompt_length - 1 :, :]
+
+    #     # verified_tokens: 1 x (T_d)
+    #     # There is a predicted token for every token in the draft output ids list, however note that the
+    #     # first tokens (or first N tokens) are coming from the prompt
+    #     verified_tokens, verified_probabilities = decode_next_token(logits=verification_logits, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
+
+    #     # skip verification of the last token as it is a new token predicted from the main model
+    #     verified_tokens = verified_tokens.to(prefill_token_ids)
+    #     verified = draft_output_ids[:, :] == verified_tokens[:, :-1]
+
+    #     # number of matches is the index of the number of tokens we are accepting from the draft
+    #     if not sample:
+    #         number_of_matches = ((~(verified)).cumsum(dim=-1) < 1).sum().item()
+    #     else:
+    #         number_of_matches = 0
+    #         rand = torch.rand_like(draft_output_ids, dtype=torch.float)
+    #         denominator = draft_probabilities[i][0, draft_output_ids[0, i]].item()
+            
+    #         if denominator == 0:
+    #             denominator = 1e-9
+    #         for i in range(draft_output_ids.numel()):
+    #             if rand[0, i] < min(1, verified_probabilities[i, draft_output_ids[0, i]].item() / denominator):
+    #                 number_of_matches += 1
+    #             else:
+    #                 verified_tokens[0][number_of_matches] = torch.multinomial(max_fn((verified_probabilities[i, :] - draft_probabilities[i])), num_samples=1).item()
+    #                 break
+
+    #     # accept the `number_of_matches` tokens from the draft with one more from the main model
+    #     # since we re-use the same cachem the input id should only be the last accepted token TODO check this
+    #     input_ids = verified_tokens[:, number_of_matches : number_of_matches + 1]
+    #     output_ids.extend(draft_output_ids[0, : number_of_matches].tolist())
+    #     output_ids.extend(verified_tokens[0][number_of_matches : number_of_matches + 1].tolist())
+
+    #     if streamer:
+    #         if isinstance(streamer, SpeculativeTextStreamer):
+    #             streamer.delete(len(draft_output_ids[0, :]))
+    #             print(colorama.Fore.GREEN, end="")
+    #             streamer.put(draft_output_ids[0, : number_of_matches])
+    #             print(colorama.Style.RESET_ALL, end="")
+    #             streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1])
+    #         else:
+    #             # streamer.put(torch.cat((draft_output_ids[0, : number_of_matches], verified_tokens[0][number_of_matches : number_of_matches + 1])))
+    #             streamer.put(torch.LongTensor(output_ids[len(output_ids)-number_of_matches-1:]))
+
+    #     # we want the entire output sequence + input sequence
+    #     past_key_values = crop_past_key_values(
+    #         past_key_values, len(input_ids_list) + len(output_ids) - 1
+    #     )
+
+    #     return (
+    #         input_ids,
+    #         output_ids,
+    #         past_key_values,
+    #         number_of_matches,
+    #         draft_output_ids.numel(),
+    #     )
+    
     def single_step_speculation(
-        self,
-        model: transformers.LlamaForCausalLM,
-        input_ids: torch.Tensor,
-        input_ids_list: List[int],
-        output_ids: List[int],
-        num_speculations: int,
-        past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
-        eos_token_ids: List[int],
-        calls: int,
-        exit_layer: int,
-        sample: Optional[bool] = False,
-        temperature: Optional[float] = 0.7,
-        top_k: Optional[int] = 50,
-        top_p: Optional[float] = 0.95,
-        logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
-        stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
-        streamer: Optional[transformers.TextStreamer] = None
-    ):
+    self,
+    model: transformers.LlamaForCausalLM,
+    input_ids: torch.Tensor,
+    input_ids_list: List[int],
+    output_ids: List[int],
+    num_speculations: int,
+    past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]],
+    eos_token_ids: List[int],
+    calls: int,
+    exit_layer: int,
+    sample: Optional[bool] = False,
+    temperature: Optional[float] = 0.7,
+    top_k: Optional[int] = 50,
+    top_p: Optional[float] = 0.95,
+    logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
+    stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
+    streamer: Optional[transformers.TextStreamer] = None ):
+        zero_division_count = 0  # Counter for ZeroDivisionErrors
+        
         prompt_length: int = input_ids.size(1)
         draft_input_ids = input_ids.clone()
         draft_output_ids: List[int] = []
+        
         if sample:
             draft_probabilities: List[torch.Tensor] = []
+        
         exit_query_cache = None
+
         for _ in range(num_speculations):
             draft_result = forward_early(
                 model,
@@ -135,32 +276,39 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             past_key_values = draft_result.past_key_values
             exit_query_cache = draft_result.exit_query_cache
             draft_logits = draft_result.logits
+            
             if logits_processors:
                 draft_logits = logits_processors(draft_input_ids, draft_logits)
-            draft_next_token, draft_next_prob = decode_next_token(logits=draft_logits, token_idx=-1, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
+            
+            draft_next_token, draft_next_prob = decode_next_token(
+                logits=draft_logits, 
+                token_idx=-1, 
+                sample=sample, 
+                temperature=temperature, 
+                top_k=top_k, 
+                top_p=top_p
+            )
             draft_next_token = draft_next_token.item()
             draft_output_ids.append(draft_next_token)
+            
             if sample:
                 draft_probabilities.append(draft_next_prob)
+            
             draft_input_ids = torch.tensor([[draft_next_token]]).to(draft_input_ids)
+            
             if draft_next_token in eos_token_ids:
-                # break out of loop when we get an EOS token
-                break
+                break  # Stop if an EOS token is reached
 
-        # input_ids (1 x T_p) and draft_output_ids (1 x T_d) are concatenated together to make
-        # 1 x (T_d  + T_p)
+        # Convert draft output IDs to tensor
         draft_output_ids = torch.tensor(draft_output_ids).unsqueeze(0).to(input_ids)
-        prefill_token_ids = torch.cat(
-            [input_ids, draft_output_ids],
-            dim=-1,
-        )
+        prefill_token_ids = torch.cat([input_ids, draft_output_ids], dim=-1)
 
         if streamer:
             if isinstance(streamer, SpeculativeTextStreamer):
                 print(colorama.Fore.LIGHTMAGENTA_EX, end="")
                 streamer.put(draft_output_ids, is_draft=True)
 
-        # logits: 1 x (T_d  + T_p) x V
+        # Get verification logits
         verify_results = forward_remainder(
             model,
             prefill_token_ids.int(),
@@ -169,37 +317,84 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
             exit_query_cache,
         )
         logits = verify_results.logits
+        
         if logits_processors:
             logits = logits_processors(prefill_token_ids, logits)
+        
         past_key_values = verify_results.past_key_values
-        # only select the logits relevant to what the draft has outputted.
-        # verification_logits: 1 x T_d x V
+
         verification_logits = logits[:, prompt_length - 1 :, :]
+        verified_tokens, verified_probabilities = decode_next_token(
+            logits=verification_logits, 
+            sample=sample, 
+            temperature=temperature, 
+            top_k=top_k, 
+            top_p=top_p
+        )
 
-        # verified_tokens: 1 x (T_d)
-        # There is a predicted token for every token in the draft output ids list, however note that the
-        # first tokens (or first N tokens) are coming from the prompt
-        verified_tokens, verified_probabilities = decode_next_token(logits=verification_logits, sample=sample, temperature=temperature, top_k=top_k, top_p=top_p)
-
-        # skip verification of the last token as it is a new token predicted from the main model
         verified_tokens = verified_tokens.to(prefill_token_ids)
         verified = draft_output_ids[:, :] == verified_tokens[:, :-1]
 
-        # number of matches is the index of the number of tokens we are accepting from the draft
         if not sample:
             number_of_matches = ((~(verified)).cumsum(dim=-1) < 1).sum().item()
         else:
             number_of_matches = 0
             rand = torch.rand_like(draft_output_ids, dtype=torch.float)
+
             for i in range(draft_output_ids.numel()):
-                if rand[0, i] < min(1, verified_probabilities[i, draft_output_ids[0, i]].item() / draft_probabilities[i][0, draft_output_ids[0, i]].item()):
+                denominator = draft_probabilities[i][0, draft_output_ids[0, i]].item()
+
+                # Debugging: Print probabilities before division
+                print(f"\n[DEBUG] Speculation Step {i}")
+                print(f"  Draft Output Token: {draft_output_ids[0, i].item()}")
+                print(f"  Verified Probability: {verified_probabilities[i, draft_output_ids[0, i]].item()}")
+                print(f"  Draft Probability: {denominator}")
+
+                if denominator == 0:
+                    print("  **[WARNING] Zero Draft Probability Encountered!**")
+                    zero_division_count += 1
+                    denominator = 1e-9  # Add epsilon to avoid division by zero
+
+                # Compute acceptance criteria
+                if rand[0, i] < min(1, verified_probabilities[i, draft_output_ids[0, i]].item() / denominator):
                     number_of_matches += 1
                 else:
-                    verified_tokens[0][number_of_matches] = torch.multinomial(max_fn((verified_probabilities[i, :] - draft_probabilities[i])), num_samples=1).item()
+                    # verified_tokens[0][number_of_matches] = torch.multinomial(
+                    #     max_fn((verified_probabilities[i, :] - draft_probabilities[i])), 
+                    #     num_samples=1
+                    # ).item()
+                    
+                    # Compute the probability distribution
+                    prob_dist = max_fn((verified_probabilities[i, :] - draft_probabilities[i]))
+
+                    # Debugging: Print the probability distribution before sampling
+                    print(f"\n[DEBUG] Probability Distribution before multinomial at step {i}: {prob_dist}")
+
+                    # Fix invalid probability distribution: replace zero-sum with small epsilon
+                    if prob_dist.sum().item() <= 0:
+                        print(f"[WARNING] Invalid multinomial distribution (sum={prob_dist.sum().item()}), fixing...")
+                        # Log the problematic case
+                        print("\n=====[ PROBLEMATIC CASE DETECTED ]=====")
+                        # print(f"[INPUT PROMPT]: {self.tokenizer.decode(input_ids_list)}")
+                        print(f"[TOKENIZED INPUT]: {input_ids_list}")
+                        print(f"[DRAFT OUTPUT TOKENS]: {draft_output_ids.tolist()}")
+                        print(f"[VERIFIED OUTPUT TOKENS]: {verified_tokens.tolist()}")
+                        print(f"[RAW VERIFIED PROBABILITIES]: {verified_probabilities[i, :].tolist()}")
+                        print(f"[RAW DRAFT PROBABILITIES]: {draft_probabilities[i].tolist()}")
+                        print("====================================\n")
+
+                        prob_dist = torch.full_like(prob_dist, 1e-9)  # Small constant for valid multinomial distribution
+
+                    # Normalize to sum to 1 (avoid biased sampling)
+                    prob_dist = prob_dist / prob_dist.sum()
+
+                    # Sample from the fixed probability distribution
+                    verified_tokens[0][number_of_matches] = torch.multinomial(prob_dist, num_samples=1).item()
+
                     break
 
-        # accept the `number_of_matches` tokens from the draft with one more from the main model
-        # since we re-use the same cachem the input id should only be the last accepted token TODO check this
+        print(f"\n[SUMMARY] Zero-Division Cases Encountered: {zero_division_count}")
+
         input_ids = verified_tokens[:, number_of_matches : number_of_matches + 1]
         output_ids.extend(draft_output_ids[0, : number_of_matches].tolist())
         output_ids.extend(verified_tokens[0][number_of_matches : number_of_matches + 1].tolist())
@@ -212,10 +407,8 @@ class SelfSpeculativeGenerationStrategy(GenerationStrategy):
                 print(colorama.Style.RESET_ALL, end="")
                 streamer.put(verified_tokens[0][number_of_matches : number_of_matches + 1])
             else:
-                # streamer.put(torch.cat((draft_output_ids[0, : number_of_matches], verified_tokens[0][number_of_matches : number_of_matches + 1])))
                 streamer.put(torch.LongTensor(output_ids[len(output_ids)-number_of_matches-1:]))
 
-        # we want the entire output sequence + input sequence
         past_key_values = crop_past_key_values(
             past_key_values, len(input_ids_list) + len(output_ids) - 1
         )

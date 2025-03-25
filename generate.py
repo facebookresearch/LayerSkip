@@ -28,6 +28,7 @@ from self_speculation.generator_base import (
 )
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from self_speculation.speculative_streamer import SpeculativeTextStreamer
+from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
 
 class StreamerType(str, Enum):
     NONE="none"
@@ -38,18 +39,22 @@ class StreamerType(str, Enum):
 class GenerateArguments:
     streamer: StreamerType = StreamerType.STANDARD
 
-def setup(args: Arguments, device: str = "cuda"):
-    backend_str = "cpu:gloo" if "cpu" in device else "cuda:nccl,cpu:gloo"
-    torch.distributed.init_process_group(
-        backend=backend_str, timeout=datetime.timedelta(hours=48)
-    )
-    rank = int(os.environ["LOCAL_RANK"])
+def setup(args, device: str = "cuda"):
+    """Setup function for single GPU or distributed training."""
+    if device == "cuda":
+        torch.cuda.set_device(0)  # Use first GPU
+        
+    # Skip distributed setup if running on single GPU
+    if not args.distributed:  # Add this condition
+        return
 
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if rank != 0:
-        # only run on rank 0, we don't support parallel inference yet
-        exit()
+    # Only run distributed setup if explicitly requested
+    torch.distributed.init_process_group(
+        backend="nccl" if device == "cuda" else "gloo",
+        init_method=args.dist_url,
+        world_size=args.world_size,
+        rank=args.rank,
+    )
 
 def load_model_and_tokenizer(args: Arguments, device: str = "auto"):
     local_model_path: str = args.model
@@ -87,10 +92,13 @@ def main(args: Arguments, generate_arguments: GenerateArguments, generation_conf
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
         generation_strategy: GenerationStrategy = SelfSpeculativeGenerationStrategy()
-    else:
-        raise Exception(
-            f"Unsupported generation strategy: {generation_config.generation_strategy}"
+    elif generation_config.generation_strategy == "layerdrop":
+        generation_strategy: GenerationStrategy = LayerDropGenerationStrategy(
+            dropout_rate=generation_config.dropout_rate,
+            seed=generation_config.layerdrop_seed
         )
+    else:
+        raise Exception(f"Unsupported generation strategy: {generation_config.generation_strategy}")
 
     # initialize generator
     generator = HuggingfaceLlamaGenerator(
@@ -101,7 +109,7 @@ def main(args: Arguments, generate_arguments: GenerateArguments, generation_conf
     warmup = 1
     for _ in range(warmup):
         model.generation_config.pad_token_id = tokenizer.eos_token_id
-        model.generate(**tokenizer("This is a warmup prompt", return_tensors="pt").to(device), max_new_tokens=10)
+        model.generate(**tokenizer("This is a warmup prompt", return_tensors="pt").to('mps'), max_new_tokens=10)
 
     while True:
         print()
