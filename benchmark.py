@@ -38,7 +38,6 @@ from self_speculation.generator_base import (
 )
 
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
-from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -80,74 +79,6 @@ class ExactMatch(Metric):
         """
         self.correct_count += metrics.correct_count
         self.total_count += metrics.total_count
-
-
-class MultipleChoiceExactMatch(Metric):
-    def __init__(self, device: Optional[torch.device] = None) -> None:
-        super().__init__(device=device)
-        self.correct_count = 0
-        self.total_count = 0
-
-    def update(self, prediction: str, target: str) -> None:
-        self.total_count += 1
-        
-        # Extract answer letter from prediction
-        pred_letter = None
-        if prediction.strip().startswith(('A', 'B', 'C', 'D')):
-            pred_letter = prediction.strip()[0]
-        else:
-            # Try to find first occurrence of A. B. C. or D.
-            for letter in ['A', 'B', 'C', 'D']:
-                pattern = letter + '.'
-                if pattern in prediction:
-                    pred_letter = letter
-                    break
-        
-        # Extract answer letter from target
-        target_letter = target.strip()
-        if len(target_letter) > 0:
-            target_letter = target_letter[0]
-        
-        print(f"Extracted: prediction={pred_letter}, target={target_letter}")
-        
-        if pred_letter and target_letter and pred_letter == target_letter:
-            self.correct_count += 1
-            print("✓ CORRECT")
-        else:
-            print("✗ INCORRECT")
-
-    def compute(self) -> torch.Tensor:
-        if self.total_count == 0:
-            return torch.tensor(0.0, device=self.device)
-        return torch.tensor(self.correct_count / self.total_count, device=self.device)
-
-    def merge_state(self, metrics: "MultipleChoiceExactMatch") -> None:
-        self.correct_count += metrics.correct_count
-        self.total_count += metrics.total_count
-
-
-class MultipleChoiceAccuracy(Mean):
-    def update(self, prediction: str, target: str) -> None:
-        # Extract answer letter from prediction
-        pred_letter = None
-        if prediction.strip().startswith(('A', 'B', 'C', 'D')):
-            pred_letter = prediction.strip()[0]
-        else:
-            # Try to find first occurrence of A. B. C. or D.
-            for letter in ['A', 'B', 'C', 'D']:
-                pattern = letter + '.'
-                if pattern in prediction:
-                    pred_letter = letter
-                    break
-        
-        # Extract answer letter from target
-        target_letter = target.strip()
-        if len(target_letter) > 0:
-            target_letter = target_letter[0]
-        
-        # Pass 1.0 if correct, 0.0 if incorrect
-        is_correct = 1.0 if pred_letter and target_letter and pred_letter == target_letter else 0.0
-        super().update(torch.tensor(is_correct))
 
 
 @dataclass
@@ -247,31 +178,8 @@ class EvaluationMetrics:
     def build_metrics(cls) -> "EvaluationMetrics":
         return cls(
             predicted_text={
-                "rouge-l": ROUGEScoreWrapper(
-                    ROUGEScore(
-                        rouge_keys="rougeL",
-                        normalizer=LowercaseProcessingFunction,
-                    )
-                ),
-                "rouge-1": ROUGEScoreWrapper(
-                    ROUGEScore(
-                        rouge_keys="rouge1", normalizer=LowercaseProcessingFunction
-                    )
-                ),
-                "rouge-2": ROUGEScoreWrapper(
-                    ROUGEScore(
-                        rouge_keys="rouge2", normalizer=LowercaseProcessingFunction
-                    )
-                ),
-                "rouge-3": ROUGEScoreWrapper(
-                    ROUGEScore(
-                        rouge_keys="rouge3", normalizer=LowercaseProcessingFunction
-                    )
-                ),
-                "bleu_score": BLEUScore(
-                    n_gram=4,
-                ),
-                "exact_match": EditDistance(),
+                "exact_match": ExactMatch(),
+                "accuracy": Mean(), # example accuracy. can be replaced with ExactMatch
             },
             acceptance_rate={"mean": Mean()},
             total_time={"mean": Mean()},
@@ -290,136 +198,198 @@ def benchmark(
     """
     Benchmark function optimized for multiple-choice QA datasets like MMLU and RACE-M.
     """
-    # First, let's set up the appropriate generation strategy
+    # Check if we're using a multiple-choice dataset
+    is_multiple_choice = benchmark_arguments.dataset in ["mmlu", "race_m", "race_h"]
+    
+    if not is_multiple_choice:
+        print(f"Using standard benchmark for dataset: {benchmark_arguments.dataset}")
+        # Call the original benchmark function for other datasets
+        return original_benchmark(model, tokenizer, benchmark_arguments, generation_config, seed)
+    
+    # Optimize generation config for multiple-choice QA datasets
+    print(f"Optimizing generation config for multiple-choice dataset: {benchmark_arguments.dataset}")
+    
+    # Limit token generation to get just the answer
+    generation_config.max_steps = min(generation_config.max_steps, 20)
+    # Lower temperature for more deterministic responses
+    generation_config.temperature = min(generation_config.temperature, 0.3)
+    
+    # Add stop strings if that attribute exists
+    if hasattr(generation_config, 'stop_strings') and not generation_config.stop_strings:
+        generation_config.stop_strings = ["\n", "."]
+    
+    print(f"Updated generation config: max_steps={generation_config.max_steps}, "
+          f"temperature={generation_config.temperature}")
+
     if generation_config.generation_strategy == "autoregressive":
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
         generation_strategy: GenerationStrategy = SelfSpeculativeGenerationStrategy()
-    elif generation_config.generation_strategy == "layerdrop":
-        generation_strategy: GenerationStrategy = LayerDropGenerationStrategy(
-            dropout_rate=generation_config.dropout_rate,
-            seed=generation_config.layerdrop_seed or seed
-        )
     else:
         raise ValueError(
             f"Unrecognized generation strategy: {generation_config.generation_strategy}"
         )
-    multiple_choice_datasets = ["piqa", "hellaswag", "arc_easy", "arc_challenge", 
-                               "mmlu", "boolq", "race_m", "race_h", "openbookqa", "winogrande"]
+
+    # Custom metric for multiple-choice QA
+    class MultipleChoiceExactMatch(Metric):
+        def __init__(self, device: Optional[torch.device] = None) -> None:
+            super().__init__(device=device)
+            self.correct_count = 0
+            self.total_count = 0
+
+        def update(self, prediction: str, target: str) -> None:
+            self.total_count += 1
+            
+            # Extract answer letter from prediction
+            pred_letter = None
+            if prediction.strip().startswith(('A', 'B', 'C', 'D')):
+                pred_letter = prediction.strip()[0]
+            else:
+                # Try to find first occurrence of A. B. C. or D.
+                for letter in ['A', 'B', 'C', 'D']:
+                    pattern = letter + '.'
+                    if pattern in prediction:
+                        pred_letter = letter
+                        break
+            
+            # Extract answer letter from target
+            target_letter = target.strip()
+            if len(target_letter) > 0:
+                target_letter = target_letter[0]
+            
+            print(f"Extracted: prediction={pred_letter}, target={target_letter}")
+            
+            if pred_letter and target_letter and pred_letter == target_letter:
+                self.correct_count += 1
+                print("✓ CORRECT")
+            else:
+                print("✗ INCORRECT")
+
+        def compute(self) -> torch.Tensor:
+            if self.total_count == 0:
+                return torch.tensor(0.0, device=self.device)
+            return torch.tensor(self.correct_count / self.total_count, device=self.device)
+
+        def merge_state(self, metrics: "MultipleChoiceExactMatch") -> None:
+            self.correct_count += metrics.correct_count
+            self.total_count += metrics.total_count
     
-    # Determine which benchmark function to use based on dataset type
-    if benchmark_arguments.dataset in multiple_choice_datasets:
-        # For multiple-choice datasets, optimize generation config
-        print(f"Optimizing generation config for multiple-choice dataset: {benchmark_arguments.dataset}")
-        
-        # Limit token generation to get just the answer
-        generation_config.max_steps = min(generation_config.max_steps, 20)
-        # Lower temperature for more deterministic responses
-        generation_config.temperature = min(generation_config.temperature, 0.3)
-        
-        # Add stop strings if that attribute exists
-        if hasattr(generation_config, 'stop_strings') and not generation_config.stop_strings:
-            generation_config.stop_strings = ["\n", "."]
-        
-        print(f"Updated generation config: max_steps={generation_config.max_steps}, "
-              f"temperature={generation_config.temperature}")
-              
-        # Create custom metrics for multiple-choice QA
-        evaluation_metrics = EvaluationMetrics(
-            predicted_text={
-                "exact_match": MultipleChoiceExactMatch(),
-                "accuracy": MultipleChoiceAccuracy(),
-            },
-            acceptance_rate={"mean": Mean()},
-            total_time={"mean": Mean()},
-            time_per_token={"mean": Mean()},
-            tokens_per_second={"mean": Mean()},
-        )
-
-        # initialize generator
-        generator = HuggingfaceLlamaGenerator(
-            tokenizer=tokenizer, model=model, generation_strategy=generation_strategy
-        )
-
-        evaluation_data_points = get_data(
-            random_shuffle=benchmark_arguments.random_shuffle,
-            num_samples=benchmark_arguments.num_samples,
-            dataset=benchmark_arguments.dataset,
-            data_path=benchmark_arguments.data_path,
-            n_shot=benchmark_arguments.n_shot,
-            seed=seed,
-            template=benchmark_arguments.template,
-        )
-
-        print(f"Benchmarking on {benchmark_arguments.dataset.upper()} with {len(evaluation_data_points)} samples...")
-
-        correct_answers = 0
-        total_questions = 0
-
-        for data_point in tqdm(evaluation_data_points, desc=f"Benchmarking {benchmark_arguments.dataset.upper()}"):
-            print("Type: ", type(data_point))
+    class MultipleChoiceAccuracy(Mean):
+        def update(self, prediction: str, target: str) -> None:
+            # Extract answer letter from prediction
+            pred_letter = None
+            if prediction.strip().startswith(('A', 'B', 'C', 'D')):
+                pred_letter = prediction.strip()[0]
+            else:
+                # Try to find first occurrence of A. B. C. or D.
+                for letter in ['A', 'B', 'C', 'D']:
+                    pattern = letter + '.'
+                    if pattern in prediction:
+                        pred_letter = letter
+                        break
             
-            if not hasattr(data_point, 'input') or not hasattr(data_point, 'output'):
-                print(f"WARNING: Unexpected data point format: {data_point}")
-                continue
-                
-            input_text = data_point.input
-            expected_output = data_point.output
-
-            generation_result = generator.generate(
-                prompt=input_text,
-                generation_config=generation_config,
-            )
-
-            predicted_answer = generation_result.decoded_prediction.strip()
-
-            print(f"Input: {input_text}")
-            print(f"Predicted: {predicted_answer}")
-            print(f"Expected: {expected_output}")
-
-            # Update metrics
-            total_questions += 1
+            # Extract answer letter from target
+            target_letter = target.strip()
+            if len(target_letter) > 0:
+                target_letter = target_letter[0]
             
-            # For multiple-choice metrics, we directly pass prediction and target
-            for metric_name, metric in evaluation_metrics.predicted_text.items():
-                metric.update(predicted_answer, expected_output)
-                
-            # For other metrics
-            for metric in evaluation_metrics.acceptance_rate.values():
-                if generation_result.generation_strategy_result.acceptance_rate is None:
-                    acceptance_rate = torch.tensor(0)
-                else:
-                    acceptance_rate = torch.tensor(
-                        generation_result.generation_strategy_result.acceptance_rate
-                    )
-                metric.update(acceptance_rate)
+            # Pass 1.0 if correct, 0.0 if incorrect
+            is_correct = 1.0 if pred_letter and target_letter and pred_letter == target_letter else 0.0
+            super().update(torch.tensor(is_correct))
 
-            for metric in evaluation_metrics.total_time.values():
-                metric.update(torch.tensor(generation_result.total_time))
+    # Create custom metrics for multiple-choice QA
+    evaluation_metrics = EvaluationMetrics(
+        predicted_text={
+            "exact_match": MultipleChoiceExactMatch(),
+            "accuracy": MultipleChoiceAccuracy(),
+        },
+        acceptance_rate={"mean": Mean()},
+        total_time={"mean": Mean()},
+        time_per_token={"mean": Mean()},
+        tokens_per_second={"mean": Mean()},
+    )
 
-            for metric in evaluation_metrics.time_per_token.values():
-                metric.update(torch.tensor(generation_result.time_per_token))
+    # initialize generator
+    generator = HuggingfaceLlamaGenerator(
+        tokenizer=tokenizer, model=model, generation_strategy=generation_strategy
+    )
 
-            for metric in evaluation_metrics.tokens_per_second.values():
-                metric.update(torch.tensor(generation_result.tokens_per_second))
+    evaluation_data_points = get_data(
+        random_shuffle=benchmark_arguments.random_shuffle,
+        num_samples=benchmark_arguments.num_samples,
+        dataset=benchmark_arguments.dataset,
+        data_path=benchmark_arguments.data_path,
+        n_shot=benchmark_arguments.n_shot,
+        seed=seed,
+        template=benchmark_arguments.template,
+    )
 
-            # Show current progress
-            current_metrics = evaluation_metrics.compute()
-            print(f"Current Exact Match Accuracy: {current_metrics['predicted_text']['exact_match']:.4f}")
-            print(f"Current Mean Accuracy: {current_metrics['predicted_text']['accuracy']:.4f}")
-            print("-" * 50)
+    print(f"Benchmarking on {benchmark_arguments.dataset.upper()} with {len(evaluation_data_points)} samples...")
 
-        final_metrics = evaluation_metrics.compute()
+    correct_answers = 0
+    total_questions = 0
 
-        print(f"\n--- Final Metrics ({benchmark_arguments.dataset.upper()}) ---")
-        print(f"Final Exact Match Accuracy: {final_metrics['predicted_text']['exact_match']:.4f}")
-        print(f"Final Mean Accuracy: {final_metrics['predicted_text']['accuracy']:.4f}")
-        print(f"Total Questions: {total_questions}")
+    for data_point in tqdm(evaluation_data_points, desc=f"Benchmarking {benchmark_arguments.dataset.upper()}"):
+        print("Type: ", type(data_point))
+        
+        if not hasattr(data_point, 'input') or not hasattr(data_point, 'output'):
+            print(f"WARNING: Unexpected data point format: {data_point}")
+            continue
+            
+        input_text = data_point.input
+        expected_output = data_point.output
 
-        return final_metrics
-    else:
-        # Call the original benchmark function with our generation strategy
-        return original_benchmark(model, tokenizer, benchmark_arguments, generation_config, seed, generation_strategy)
+        generation_result = generator.generate(
+            prompt=input_text,
+            generation_config=generation_config,
+        )
+
+        predicted_answer = generation_result.decoded_prediction.strip()
+
+        print(f"Input: {input_text}")
+        print(f"Predicted: {predicted_answer}")
+        print(f"Expected: {expected_output}")
+
+        # Update metrics
+        total_questions += 1
+        
+        # For multiple-choice metrics, we directly pass prediction and target
+        for metric_name, metric in evaluation_metrics.predicted_text.items():
+            metric.update(predicted_answer, expected_output)
+            
+        # For other metrics
+        for metric in evaluation_metrics.acceptance_rate.values():
+            if generation_result.generation_strategy_result.acceptance_rate is None:
+                acceptance_rate = torch.tensor(0)
+            else:
+                acceptance_rate = torch.tensor(
+                    generation_result.generation_strategy_result.acceptance_rate
+                )
+            metric.update(acceptance_rate)
+
+        for metric in evaluation_metrics.total_time.values():
+            metric.update(torch.tensor(generation_result.total_time))
+
+        for metric in evaluation_metrics.time_per_token.values():
+            metric.update(torch.tensor(generation_result.time_per_token))
+
+        for metric in evaluation_metrics.tokens_per_second.values():
+            metric.update(torch.tensor(generation_result.tokens_per_second))
+
+        # Show current progress
+        current_metrics = evaluation_metrics.compute()
+        print(f"Current Exact Match Accuracy: {current_metrics['predicted_text']['exact_match']:.4f}")
+        print(f"Current Mean Accuracy: {current_metrics['predicted_text']['accuracy']:.4f}")
+        print("-" * 50)
+
+    final_metrics = evaluation_metrics.compute()
+
+    print(f"\n--- Final Metrics ({benchmark_arguments.dataset.upper()}) ---")
+    print(f"Final Exact Match Accuracy: {final_metrics['predicted_text']['exact_match']:.4f}")
+    print(f"Final Mean Accuracy: {final_metrics['predicted_text']['accuracy']:.4f}")
+    print(f"Total Questions: {total_questions}")
+
+    return final_metrics
 
 
 # Save the original benchmark function for other datasets
@@ -429,24 +399,16 @@ def original_benchmark(
         benchmark_arguments: BenchmarkArguments, 
         generation_config: GenerationConfig,
         seed = None,
-        generation_strategy = None,
     ):
     """The original benchmark function for non-multiple-choice datasets."""
-    # Use the provided generation strategy or create a new one if not provided
-    if generation_strategy is None:
-        if generation_config.generation_strategy == "autoregressive":
-            generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
-        elif generation_config.generation_strategy == "self_speculative":
-            generation_strategy: GenerationStrategy = SelfSpeculativeGenerationStrategy()
-        elif generation_config.generation_strategy == "layerdrop":
-            generation_strategy: GenerationStrategy = LayerDropGenerationStrategy(
-                dropout_rate=generation_config.dropout_rate,
-                seed=generation_config.layerdrop_seed or seed
-            )
-        else:
-            raise ValueError(
-                f"Unrecognized generation strategy: {generation_config.generation_strategy}"
-            )
+    if generation_config.generation_strategy == "autoregressive":
+        generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
+    elif generation_config.generation_strategy == "self_speculative":
+        generation_strategy: GenerationStrategy = SelfSpeculativeGenerationStrategy()
+    else:
+        raise Exception(
+            f"Unsupported generation strategy: {generation_config.generation_strategy}"
+        )
 
     # initialize generator
     generator = HuggingfaceLlamaGenerator(
@@ -496,7 +458,7 @@ def main(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_co
     # Setup and Run Benchmark
     setup(args, device=device)
     model, tokenizer = load_model_and_tokenizer(args, device=device)
-    metric_result = benchmark(model, tokenizer, benchmark_arguments, generation_config, args.seed)
+    metric_result = benchmark(model, tokenizer, benchmark_arguments, generation_config)
     print(metric_result)
 
     # Save config and results to file
@@ -526,5 +488,3 @@ if __name__ == "__main__":
     os.makedirs(args.output_dir, exist_ok=True)
     main(args, benchmark_arguments, generation_config, f"{args.output_dir}/benchmark_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
 
-# Debug line to add temporarily
-print(f"Valid formats: {get_valid_dataset_formats()}")
