@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 #
 
+
 import datetime
 import json
 import os
@@ -187,7 +188,6 @@ class EvaluationMetrics:
             tokens_per_second={"mean": Mean()},
         )
 
-
 def benchmark(
         model: torch.nn.Module,
         tokenizer: transformers.PreTrainedTokenizerBase,
@@ -196,27 +196,32 @@ def benchmark(
         seed = None,
     ):
     """
-    Benchmark function optimized for multiple-choice QA datasets like MMLU and RACE-M.
+    Benchmark function that handles various dataset types.
+    For MBPP, it only generates code and saves to CSV without computing metrics.
     """
-    # Check if we're using a multiple-choice dataset
+    # Check dataset type
     is_multiple_choice = benchmark_arguments.dataset in ["mmlu", "race_m", "race_h"]
+    is_mbpp = benchmark_arguments.dataset == "mbpp"
     
-    if not is_multiple_choice:
+    if not is_multiple_choice and not is_mbpp:
         print(f"Using standard benchmark for dataset: {benchmark_arguments.dataset}")
         # Call the original benchmark function for other datasets
         return original_benchmark(model, tokenizer, benchmark_arguments, generation_config, seed)
     
-    # Optimize generation config for multiple-choice QA datasets
-    print(f"Optimizing generation config for multiple-choice dataset: {benchmark_arguments.dataset}")
+    # Configure for different dataset types
+    if is_multiple_choice:
+        print(f"Optimizing generation config for multiple-choice dataset: {benchmark_arguments.dataset}")
+        # Limit token generation for multiple choice
+        generation_config.max_steps = min(generation_config.max_steps, 20)
+        # Lower temperature for more deterministic responses
+        generation_config.temperature = min(generation_config.temperature, 0.3)
     
-    # Limit token generation to get just the answer
-    generation_config.max_steps = min(generation_config.max_steps, 20)
-    # Lower temperature for more deterministic responses
-    generation_config.temperature = min(generation_config.temperature, 0.3)
-    
-    # Add stop strings if that attribute exists
-    if hasattr(generation_config, 'stop_strings') and not generation_config.stop_strings:
-        generation_config.stop_strings = ["\n", "."]
+    elif is_mbpp:
+        print(f"Optimizing generation config for MBPP code generation")
+        # Increase max tokens for code generation
+        generation_config.max_steps = max(generation_config.max_steps, 512)
+        # Set a moderate temperature for code
+        generation_config.temperature = min(generation_config.temperature, 0.7)
     
     print(f"Updated generation config: max_steps={generation_config.max_steps}, "
           f"temperature={generation_config.temperature}")
@@ -230,7 +235,150 @@ def benchmark(
             f"Unrecognized generation strategy: {generation_config.generation_strategy}"
         )
 
-    # Custom metric for multiple-choice QA
+    # Set up appropriate metrics based on dataset type
+    if is_multiple_choice:
+        evaluation_metrics = setup_multiple_choice_metrics()
+    else:
+        # For MBPP, we don't need detailed metrics
+        evaluation_metrics = EvaluationMetrics(
+            predicted_text={"accuracy": Mean()},  # Just a placeholder
+            acceptance_rate={"mean": Mean()},
+            total_time={"mean": Mean()},
+            time_per_token={"mean": Mean()},
+            tokens_per_second={"mean": Mean()},
+        )
+    
+    # initialize generator
+    generator = HuggingfaceLlamaGenerator(
+        tokenizer=tokenizer, model=model, generation_strategy=generation_strategy
+    )
+
+    evaluation_data_points = get_data(
+        random_shuffle=benchmark_arguments.random_shuffle,
+        num_samples=benchmark_arguments.num_samples,
+        dataset=benchmark_arguments.dataset,
+        data_path=benchmark_arguments.data_path,
+        n_shot=benchmark_arguments.n_shot,
+        seed=seed,
+        template=benchmark_arguments.template,
+    )
+
+    print(f"Benchmarking on {benchmark_arguments.dataset.upper()} with {len(evaluation_data_points)} samples...")
+    
+    # Create a list to store all results for CSV export
+    all_results = []
+    total_questions = 0
+
+    for idx, data_point in enumerate(tqdm(evaluation_data_points, desc=f"Benchmarking {benchmark_arguments.dataset.upper()}")):
+        if not hasattr(data_point, 'input') or not hasattr(data_point, 'output'):
+            print(f"WARNING: Unexpected data point format: {data_point}")
+            continue
+            
+        input_text = data_point.input
+        expected_output = data_point.output
+
+        # Generate code
+        try:
+            generation_result = generator.generate(
+                prompt=input_text,
+                generation_config=generation_config,
+            )
+            
+            predicted_answer = generation_result.decoded_prediction.strip()
+            generation_success = True
+        except Exception as e:
+            print(f"Error during generation: {e}")
+            predicted_answer = "ERROR: Generation failed"
+            generation_success = False
+        
+        # For MBPP, just log and save results without computing metrics
+        if is_mbpp:
+            # Extract task ID if present in the prompt (or use index)
+            task_id = idx
+            try:
+                # If the data format includes task ID info, extract it
+                import re
+                match = re.search(r"task\s*id[:\s]+(\d+)", input_text.lower())
+                if match:
+                    task_id = int(match.group(1))
+            except:
+                pass
+                
+            # Store result for CSV export
+            result_entry = {
+                "idx": idx,
+                "task_id": task_id,
+                "prompt": input_text,
+                "expected_code": expected_output,
+                "generated_code": predicted_answer,
+                "success": generation_success
+            }
+            
+            # Add generation metrics if available
+            if generation_success:
+                result_entry.update({
+                    "acceptance_rate": generation_result.generation_strategy_result.acceptance_rate or 0,
+                    "total_time": generation_result.total_time,
+                    "tokens_per_second": generation_result.tokens_per_second,
+                    "num_tokens": generation_result.num_tokens_generated
+                })
+                
+            all_results.append(result_entry)
+            
+            # Print truncated results
+            print(f"Task ID: {task_id}")
+            print(f"Prompt (truncated): {input_text[:200]}...")
+            print(f"Generated Code (truncated): {predicted_answer[:200]}...")
+            print("-" * 50)
+            
+            # No metrics calculation for MBPP
+            continue
+
+        # For non-MBPP datasets, handle metrics as before
+        total_questions += 1
+        
+        # Update appropriate metrics based on dataset type
+        if is_multiple_choice:
+            for metric_name, metric in evaluation_metrics.predicted_text.items():
+                metric.update(predicted_answer, expected_output)
+            
+        # Common metrics for all dataset types
+        if generation_success:
+            for metric in evaluation_metrics.acceptance_rate.values():
+                acceptance_rate = torch.tensor(
+                    generation_result.generation_strategy_result.acceptance_rate or 0
+                )
+                metric.update(acceptance_rate)
+
+            for metric in evaluation_metrics.total_time.values():
+                metric.update(torch.tensor(generation_result.total_time))
+
+            for metric in evaluation_metrics.time_per_token.values():
+                metric.update(torch.tensor(generation_result.time_per_token))
+
+            for metric in evaluation_metrics.tokens_per_second.values():
+                metric.update(torch.tensor(generation_result.tokens_per_second))
+
+    # Save results to CSV if it's MBPP
+    if is_mbpp:
+        csv_path = save_results_to_csv(all_results, benchmark_arguments.dataset)
+        print(f"Results saved to {csv_path}")
+        # Just return a placeholder for metrics
+        return {"predicted_text": {"saved_to_csv": csv_path}}
+    
+    # For other datasets, compute and return metrics as usual
+    final_metrics = evaluation_metrics.compute()
+    
+    print(f"\n--- Final Metrics ({benchmark_arguments.dataset.upper()}) ---")
+    for metric_name, value in final_metrics['predicted_text'].items():
+        print(f"{metric_name}: {value:.4f}")
+    print(f"Total Questions: {total_questions}")
+
+    return final_metrics
+
+
+def setup_multiple_choice_metrics():
+    """Set up metrics for multiple-choice QA datasets"""
     class MultipleChoiceExactMatch(Metric):
         def __init__(self, device: Optional[torch.device] = None) -> None:
             super().__init__(device=device)
@@ -297,8 +445,7 @@ def benchmark(
             is_correct = 1.0 if pred_letter and target_letter and pred_letter == target_letter else 0.0
             super().update(torch.tensor(is_correct))
 
-    # Create custom metrics for multiple-choice QA
-    evaluation_metrics = EvaluationMetrics(
+    return EvaluationMetrics(
         predicted_text={
             "exact_match": MultipleChoiceExactMatch(),
             "accuracy": MultipleChoiceAccuracy(),
@@ -309,90 +456,40 @@ def benchmark(
         tokens_per_second={"mean": Mean()},
     )
 
-    # initialize generator
-    generator = HuggingfaceLlamaGenerator(
-        tokenizer=tokenizer, model=model, generation_strategy=generation_strategy
-    )
 
-    evaluation_data_points = get_data(
-        random_shuffle=benchmark_arguments.random_shuffle,
-        num_samples=benchmark_arguments.num_samples,
-        dataset=benchmark_arguments.dataset,
-        data_path=benchmark_arguments.data_path,
-        n_shot=benchmark_arguments.n_shot,
-        seed=seed,
-        template=benchmark_arguments.template,
-    )
-
-    print(f"Benchmarking on {benchmark_arguments.dataset.upper()} with {len(evaluation_data_points)} samples...")
-
-    correct_answers = 0
-    total_questions = 0
-
-    for data_point in tqdm(evaluation_data_points, desc=f"Benchmarking {benchmark_arguments.dataset.upper()}"):
-        print("Type: ", type(data_point))
-        
-        if not hasattr(data_point, 'input') or not hasattr(data_point, 'output'):
-            print(f"WARNING: Unexpected data point format: {data_point}")
-            continue
+def save_results_to_csv(results, dataset_name):
+    """Save benchmark results to CSV file"""
+    import csv
+    import datetime
+    import os
+    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"/content/drive/{dataset_name}_results_{timestamp}.csv"
+    
+    print(f"Saving results to {filename}...")
+    
+    with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+        # Identify fields from the first result
+        if results:
+            fieldnames = results[0].keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             
-        input_text = data_point.input
-        expected_output = data_point.output
-
-        generation_result = generator.generate(
-            prompt=input_text,
-            generation_config=generation_config,
-        )
-
-        predicted_answer = generation_result.decoded_prediction.strip()
-
-        print(f"Input: {input_text}")
-        print(f"Predicted: {predicted_answer}")
-        print(f"Expected: {expected_output}")
-
-        # Update metrics
-        total_questions += 1
-        
-        # For multiple-choice metrics, we directly pass prediction and target
-        for metric_name, metric in evaluation_metrics.predicted_text.items():
-            metric.update(predicted_answer, expected_output)
+            writer.writeheader()
+            for result in results:
+                # Truncate very long fields for CSV manageability
+                for key, value in result.items():
+                    if isinstance(value, str) and len(value) > 32767:  # Excel limit
+                        result[key] = value[:32767]
+                writer.writerow(result)
             
-        # For other metrics
-        for metric in evaluation_metrics.acceptance_rate.values():
-            if generation_result.generation_strategy_result.acceptance_rate is None:
-                acceptance_rate = torch.tensor(0)
-            else:
-                acceptance_rate = torch.tensor(
-                    generation_result.generation_strategy_result.acceptance_rate
-                )
-            metric.update(acceptance_rate)
-
-        for metric in evaluation_metrics.total_time.values():
-            metric.update(torch.tensor(generation_result.total_time))
-
-        for metric in evaluation_metrics.time_per_token.values():
-            metric.update(torch.tensor(generation_result.time_per_token))
-
-        for metric in evaluation_metrics.tokens_per_second.values():
-            metric.update(torch.tensor(generation_result.tokens_per_second))
-
-        # Show current progress
-        current_metrics = evaluation_metrics.compute()
-        print(f"Current Exact Match Accuracy: {current_metrics['predicted_text']['exact_match']:.4f}")
-        print(f"Current Mean Accuracy: {current_metrics['predicted_text']['accuracy']:.4f}")
-        print("-" * 50)
-
-    final_metrics = evaluation_metrics.compute()
-
-    print(f"\n--- Final Metrics ({benchmark_arguments.dataset.upper()}) ---")
-    print(f"Final Exact Match Accuracy: {final_metrics['predicted_text']['exact_match']:.4f}")
-    print(f"Final Mean Accuracy: {final_metrics['predicted_text']['accuracy']:.4f}")
-    print(f"Total Questions: {total_questions}")
-
-    return final_metrics
+            print(f"Saved {len(results)} results to {filename}")
+        else:
+            print("No results to save")
+    
+    return os.path.abspath(filename)
 
 
-# Save the original benchmark function for other datasets
+# Keep the original benchmark function for other datasets
 def original_benchmark(
         model: torch.nn.Module, 
         tokenizer: transformers.PreTrainedTokenizerBase, 
@@ -444,6 +541,7 @@ def original_benchmark(
     metric_result = metrics.compute()
 
     return metric_result
+
 
 def main(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
     device = "cuda" if torch.cuda.is_available() else "cpu"

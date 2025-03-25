@@ -37,6 +37,7 @@ class DatasetFormat:
     MMLU: str = "mmlu"
     RACE_M: str = "race_m"
     RACE_H: str = "race_h"
+    MBPP: str = "mbpp" 
     
 
 
@@ -93,6 +94,50 @@ def prepare_evaluation_examples_chat_format(data_path: str, template: str = None
             i += 1
     return evaluation_data_points
 
+
+def prepare_mbpp_format(data_path: str, template: str = None) -> List[EvaluationExample]:
+    """
+    Prepare the MBPP dataset for evaluation.
+    
+    Parameters:
+        data_path (str): Path to the MBPP jsonl file
+        template (str): Optional template to apply to the prompts
+        
+    Returns:
+        List[EvaluationExample]: List of evaluation examples
+    """
+    import json
+    
+    evaluation_data_points = []
+    
+    # Read the JSONL file
+    with open(data_path, 'r') as f:
+        for line in f:
+            data_point = json.loads(line)
+            
+            # Extract the prompt and expected code
+            prompt = data_point["text"]
+            expected_code = data_point["code"]
+            
+            # Include test cases in the prompt to help the model understand the task
+            if "test_list" in data_point and data_point["test_list"]:
+                prompt += "\n\nYou are an expert Python programmer, and here is your task: {prompt} Your code should pass these tests:\n\n{tests}\n[BEGIN]\n{code}\n[DONE]:\n"
+                for test in data_point["test_list"]:
+                    prompt += f"- {test}\n"
+            
+            # Apply template if provided
+            if template:
+                prompt = apply_template(message=prompt, template=template)
+            
+            # Create the evaluation example
+            evaluation_data_points.append(
+                EvaluationExample(
+                    input=prompt,
+                    output=expected_code
+                )
+            )
+    
+    return evaluation_data_points
 
 def prepare_cnn_dm_lm_format(template: str = None) -> List[EvaluationExample]:
     evaluation_data_points = []
@@ -313,6 +358,8 @@ def get_data(
         evaluation_data_points = prepare_cnn_dm_summarization_format(n_shot=n_shot, seed=seed, template=template)
     elif dataset == DatasetFormat.XSUM_SUMMARIZATION:
         evaluation_data_points = prepare_xsum_summarization_format(n_shot=n_shot, seed=seed, template=template)
+    elif dataset == DatasetFormat.MBPP: 
+        evaluation_data_points = prepare_mbpp_format(data_path='mbpp.jsonl', template=template)
     elif dataset == DatasetFormat.CNN_DM_LM:
         evaluation_data_points = prepare_cnn_dm_lm_format(template)
     elif dataset == DatasetFormat.HUMAN_EVAL:
