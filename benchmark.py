@@ -496,7 +496,7 @@ def original_benchmark(
         generation_config: GenerationConfig,
         seed = None,
     ):
-    """The original benchmark function for non-specialized datasets."""
+    """The original benchmark function"""
     if generation_config.generation_strategy == "autoregressive":
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
@@ -537,19 +537,11 @@ def original_benchmark(
         
         if response.num_tokens_generated == 0:
             print("Skipping metrics of empty generation")
-            # TBD: print stats of empty generations
             continue
         
-        # Fix: Create a dictionary for metrics.update() if your update method expects a dictionary
-        # OR modify the metrics.update() method to use example.input and example.output directly
-        
-        # Option 1: Create a dictionary
         example_dict = {"input": example.input, "output": example.output}
         metrics.update(example_dict, response)
         
-        # Option 2 (alternative): Modify your metrics.update() method to handle EvaluationExample objects
-        # metrics.update(example, response)
-
     metric_result = metrics.compute()
     return metric_result
 
