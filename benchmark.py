@@ -489,7 +489,6 @@ def save_results_to_csv(results, dataset_name):
     return os.path.abspath(filename)
 
 
-# Keep the original benchmark function for other datasets
 def original_benchmark(
         model: torch.nn.Module, 
         tokenizer: transformers.PreTrainedTokenizerBase, 
@@ -497,7 +496,7 @@ def original_benchmark(
         generation_config: GenerationConfig,
         seed = None,
     ):
-    """The original benchmark function for non-multiple-choice datasets."""
+    """The original benchmark function for non-specialized datasets."""
     if generation_config.generation_strategy == "autoregressive":
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
@@ -507,7 +506,7 @@ def original_benchmark(
             f"Unsupported generation strategy: {generation_config.generation_strategy}"
         )
 
-    # initialize generator
+    # Initialize generator
     generator = HuggingfaceLlamaGenerator(
         tokenizer=tokenizer, model=model, generation_strategy=generation_strategy
     )
@@ -521,27 +520,38 @@ def original_benchmark(
         data_path=benchmark_arguments.data_path,
         template=benchmark_arguments.template,
     )
+    
     metrics = EvaluationMetrics.build_metrics()
     for i, example in enumerate(tqdm(evaluation_set)):
         response: GenerationResult = generator.generate(
             prompt=example.input,
             generation_config=generation_config,
         )
+        
         print(f"[Prompt]:\n{example.input}")
         print(f"[Reference Response]:\n{example.output}")
         print(f"[Model Response]:\n{response.decoded_prediction}")
+        
         if response.generation_strategy_result.acceptance_rate is not None:
             print(f"[Acceptance Rate]: {response.generation_strategy_result.acceptance_rate}")
+        
         if response.num_tokens_generated == 0:
             print("Skipping metrics of empty generation")
             # TBD: print stats of empty generations
             continue
-        metrics.update(example, response)
+        
+        # Fix: Create a dictionary for metrics.update() if your update method expects a dictionary
+        # OR modify the metrics.update() method to use example.input and example.output directly
+        
+        # Option 1: Create a dictionary
+        example_dict = {"input": example.input, "output": example.output}
+        metrics.update(example_dict, response)
+        
+        # Option 2 (alternative): Modify your metrics.update() method to handle EvaluationExample objects
+        # metrics.update(example, response)
 
     metric_result = metrics.compute()
-
     return metric_result
-
 
 def main(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
     device = "cuda" if torch.cuda.is_available() else "cpu"
