@@ -38,8 +38,9 @@ class DatasetFormat:
     RACE_M: str = "race_m"
     RACE_H: str = "race_h"
     MBPP: str = "mbpp" 
+    GSM8K: str = "gsm8k"     
+    MATH: str = "math"       
     
-
 
 def get_valid_dataset_formats():
     # Extract the values of class attributes, excluding internal dunder methods
@@ -337,6 +338,194 @@ def prepare_custom(data_path: str, prompt_field: str = "prompt", response_field:
         )
     return evaluation_data_points
 
+
+def prepare_gsm8k_format(n_shot: int = 0, seed: int = 42, template: str = None) -> List[EvaluationExample]:
+    """
+    Prepare the GSM8K dataset for evaluation.
+    
+    Parameters:
+        n_shot (int): Number of examples to include as in-context examples
+        seed (int): Random seed for reproducibility
+        template (str): Optional template to apply to the prompts
+        
+    Returns:
+        List[EvaluationExample]: List of evaluation examples
+    """
+    random.seed(seed)
+    
+    # Create shots for few-shot learning
+    prompt_shots = ""
+    if n_shot > 0:
+        train_dataset = load_dataset("gsm8k", "main", split="train")
+        shots = random.sample(list(train_dataset), n_shot)
+        for shot in shots:
+            question = shot['question']
+            answer = shot['answer']
+            # Extract just the final numerical answer for the reference
+            final_answer = extract_answer_from_gsm8k(answer)
+            
+            prompt = f"Question: {question}\n\n"
+            prompt += f"Answer: {answer}\n\n"
+            prompt_shots += prompt
+        prompt_shots += "\n"
+
+    evaluation_data_points = []
+    test_dataset = load_dataset("gsm8k", "main", split="test")
+    
+    for data_point in test_dataset:
+        question = data_point['question']
+        answer = data_point['answer']
+        # Extract just the final numerical answer
+        final_answer = extract_answer_from_gsm8k(answer)
+        
+        # Create the prompt with the question
+        prompt = f"{prompt_shots}Question: {question}\n\nAnswer:"
+        
+        if template:
+            prompt = apply_template(message=prompt, template=template)
+        
+        # Create evaluation example
+        evaluation_data_points.append(
+            EvaluationExample(
+                input=prompt,
+                # Store both the full solution and just the final answer
+                output=answer,  # full step-by-step solution
+                # We'll extract the final answer during evaluation
+            )
+        )
+    
+    return evaluation_data_points
+
+
+def extract_answer_from_gsm8k(answer_text):
+    """
+    Extract the final numerical answer from a GSM8K solution.
+    
+    In GSM8K, the final answer is typically preceded by "The answer is" 
+    and followed by a number, or it's the last number in the text.
+    """
+    import re
+    
+    # Try to find "The answer is X" pattern
+    match = re.search(r"The answer is(?: |: )*([\d\.\,\-]+)", answer_text)
+    if match:
+        # Clean up the number (remove commas)
+        return match.group(1).replace(",", "")
+    
+    # Try to find the last number in the text
+    numbers = re.findall(r"([\d\.\,\-]+)", answer_text)
+    if numbers:
+        # Get the last number and clean it up
+        return numbers[-1].replace(",", "")
+    
+    # If no obvious answer pattern is found
+    return None
+
+
+def prepare_math_format(data_path: str, n_shot: int = 0, seed: int = 42, template: str = None) -> List[EvaluationExample]:
+    """
+    Prepare the MATH dataset for evaluation.
+    
+    Parameters:
+        data_path (str): Path to MATH dataset files or None to use HF dataset
+        n_shot (int): Number of examples to include as in-context examples
+        seed (int): Random seed for reproducibility
+        template (str): Optional template to apply to the prompts
+        
+    Returns:
+        List[EvaluationExample]: List of evaluation examples
+    """
+    random.seed(seed)
+    
+    # Load the dataset
+    if data_path:
+        # Load from local path if provided
+        import json
+        with open(data_path, 'r') as f:
+            data = json.load(f)
+        all_problems = data['problems'] if 'problems' in data else data
+    else:
+        # Otherwise load from Hugging Face
+        math_dataset = load_dataset("hendrycks/math", split="test")
+        all_problems = []
+        for item in math_dataset:
+            all_problems.append({
+                'problem': item['problem'],
+                'solution': item['solution'],
+                'level': item['level'],
+                'type': item['type']
+            })
+    
+    # Create shots for few-shot learning
+    prompt_shots = ""
+    if n_shot > 0:
+        shots = random.sample(all_problems, min(n_shot, len(all_problems)))
+        for shot in shots:
+            problem = shot.get('problem', shot.get('question', ''))
+            solution = shot.get('solution', shot.get('answer', ''))
+            
+            prompt = f"Problem: {problem}\n\n"
+            prompt += f"Solution: {solution}\n\n"
+            prompt_shots += prompt
+        prompt_shots += "\n"
+
+    evaluation_data_points = []
+    # Use remaining problems for testing
+    test_problems = all_problems
+    
+    for problem in test_problems:
+        question = problem.get('problem', problem.get('question', ''))
+        solution = problem.get('solution', problem.get('answer', ''))
+        
+        # Extract the final answer
+        final_answer = extract_answer_from_math(solution)
+        
+        # Create the prompt with the question
+        prompt = f"{prompt_shots}Problem: {question}\n\nSolution:"
+        
+        if template:
+            prompt = apply_template(message=prompt, template=template)
+        
+        # Create evaluation example
+        evaluation_data_points.append(
+            EvaluationExample(
+                input=prompt,
+                output=solution,  # Full solution with steps
+            )
+        )
+    
+    return evaluation_data_points
+
+
+def extract_answer_from_math(solution_text):
+    """
+    Extract the final numerical answer from a MATH solution.
+    
+    In the MATH dataset, the final answer is often proceeded by 
+    "The answer is" or it's the last calculation or expression.
+    """
+    import re
+    
+    # Try to find "The answer is X" pattern
+    match = re.search(r"The answer is(?: |: )*([\d\.\,\-\/\$]+|[a-zA-Z]+(?:\s[a-zA-Z]+)*)", solution_text, re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    
+    # In LaTeX format, answers might be at the end with \boxed{...}
+    match = re.search(r"\\boxed{([^}]+)}", solution_text)
+    if match:
+        return match.group(1).strip()
+    
+    # Look for the last line that has a calculation
+    lines = solution_text.strip().split('\n')
+    for line in reversed(lines):
+        line = line.strip()
+        if re.search(r"[\d\.\,\-\/\$]+|[a-zA-Z]+ ?= ?[\d\.\-\/]+", line):
+            return line.split('=')[-1].strip()
+    
+    # If no obvious answer pattern is found
+    return None
+
 def get_data(
     random_shuffle: bool,
     num_samples: int,
@@ -354,6 +543,10 @@ def get_data(
         evaluation_data_points = prepare_mmlu_format(n_shot=n_shot, seed=seed, template=template)
     elif dataset == DatasetFormat.RACE_M or dataset == DatasetFormat.RACE_H: 
         evaluation_data_points = prepare_race_mh_format(n_shot=n_shot, seed=seed, dataset= dataset,template=template)
+    elif dataset == DatasetFormat.GSM8K: 
+        evaluation_data_points = prepare_gsm8k_format(n_shot=n_shot, seed=seed, template=template)
+    elif dataset == DatasetFormat.MATH:  
+        evaluation_data_points = prepare_math_format(data_path=data_path, n_shot=n_shot, seed=seed, template=template)
     elif dataset == DatasetFormat.CNN_DM_SUMMARIZATION:
         evaluation_data_points = prepare_cnn_dm_summarization_format(n_shot=n_shot, seed=seed, template=template)
     elif dataset == DatasetFormat.XSUM_SUMMARIZATION:

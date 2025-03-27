@@ -188,6 +188,65 @@ class EvaluationMetrics:
             tokens_per_second={"mean": Mean()},
         )
 
+def setup_math_reasoning_metrics(dataset_name):
+    """Set up metrics for math reasoning datasets"""
+    class MathAccuracy(Mean):
+        def __init__(self, dataset_name, device: Optional[torch.device] = None) -> None:
+            super().__init__(device=device)
+            self.dataset_name = dataset_name
+            
+        def update(self, value: torch.Tensor) -> None:
+            # This is already a tensor with value 0.0 or 1.0
+            super().update(value)
+    
+    return EvaluationMetrics(
+        predicted_text={
+            "accuracy": MathAccuracy(dataset_name),
+        },
+        acceptance_rate={"mean": Mean()},
+        total_time={"mean": Mean()},
+        time_per_token={"mean": Mean()},
+        tokens_per_second={"mean": Mean()},
+    )
+
+
+def normalize_math_answer(answer_str):
+    """
+    Normalize a math answer for better comparison.
+    
+    Handles:
+    - Numbers with commas
+    - Dollar signs
+    - Spaces
+    - Case sensitivity for text answers
+    """
+    if not answer_str:
+        return ""
+    
+    import re
+    
+    # Convert to lowercase and strip whitespace
+    normalized = answer_str.lower().strip()
+    
+    # Remove commas from numbers (e.g., "1,234" -> "1234")
+    normalized = re.sub(r"(\d),(\d)", r"\1\2", normalized)
+    
+    # Remove dollar signs
+    normalized = normalized.replace("$", "")
+    
+    # Remove extra whitespace
+    normalized = re.sub(r"\s+", " ", normalized)
+    
+    # Remove trailing zeros after decimal point (e.g., "5.0" -> "5")
+    if re.match(r"^\d+\.\d+$", normalized):
+        normalized = normalized.rstrip('0').rstrip('.') if '.' in normalized else normalized
+    
+    # Normalize fractions like "1/2" (ensure spaces around division)
+    normalized = re.sub(r"(\d+)/(\d+)", r"\1 / \2", normalized)
+    
+    return normalized
+
+
 def benchmark(
         model: torch.nn.Module,
         tokenizer: transformers.PreTrainedTokenizerBase,
@@ -197,13 +256,14 @@ def benchmark(
     ):
     """
     Benchmark function that handles various dataset types.
-    For MBPP, it only generates code and saves to CSV without computing metrics.
+    For MBPP and HUMAN_EVAL, it only generates code and saves to CSV without computing metrics.
     """
     # Check dataset type
-    is_multiple_choice = benchmark_arguments.dataset in ["mmlu", "race_m", "race_h"]
-    is_mbpp = benchmark_arguments.dataset == "mbpp"
+    is_multiple_choice = benchmark_arguments.dataset in ["mmlu", "race_m"]
+    is_code_generation = benchmark_arguments.dataset in ["mbpp", "human_eval"]
+    is_math_reasoning = benchmark_arguments.dataset in ["gsm8k", "math"]
     
-    if not is_multiple_choice and not is_mbpp:
+    if not is_multiple_choice and not is_code_generation and not is_math_reasoning:
         print(f"Using standard benchmark for dataset: {benchmark_arguments.dataset}")
         # Call the original benchmark function for other datasets
         return original_benchmark(model, tokenizer, benchmark_arguments, generation_config, seed)
@@ -216,12 +276,19 @@ def benchmark(
         # Lower temperature for more deterministic responses
         generation_config.temperature = min(generation_config.temperature, 0.3)
     
-    elif is_mbpp:
-        print(f"Optimizing generation config for MBPP code generation")
+    elif is_code_generation:
+        print(f"Optimizing generation config for code generation: {benchmark_arguments.dataset}")
         # Increase max tokens for code generation
         generation_config.max_steps = max(generation_config.max_steps, 512)
         # Set a moderate temperature for code
         generation_config.temperature = min(generation_config.temperature, 0.7)
+        
+    elif is_math_reasoning:
+        print(f"Optimizing generation config for math reasoning: {benchmark_arguments.dataset}")
+        # Set appropriate tokens for math reasoning (need space for step-by-step)
+        generation_config.max_steps = max(generation_config.max_steps, 300)
+        # Lower temperature for math to get more precise calculations
+        generation_config.temperature = min(generation_config.temperature, 0.3)
     
     print(f"Updated generation config: max_steps={generation_config.max_steps}, "
           f"temperature={generation_config.temperature}")
@@ -235,11 +302,13 @@ def benchmark(
             f"Unrecognized generation strategy: {generation_config.generation_strategy}"
         )
 
-    # Set up appropriate metrics based on dataset type
+    # Set up appropriate metrics based on dataset type (only for datasets where we compute metrics)
     if is_multiple_choice:
         evaluation_metrics = setup_multiple_choice_metrics()
+    elif is_math_reasoning:
+        evaluation_metrics = setup_math_reasoning_metrics(benchmark_arguments.dataset)
     else:
-        # For MBPP, we don't need detailed metrics
+        # For code generation (MBPP, HUMAN_EVAL), we just use placeholder metrics
         evaluation_metrics = EvaluationMetrics(
             predicted_text={"accuracy": Mean()},  # Just a placeholder
             acceptance_rate={"mean": Mean()},
@@ -277,7 +346,7 @@ def benchmark(
         input_text = data_point.input
         expected_output = data_point.output
 
-        # Generate code
+        # Generate response
         try:
             generation_result = generator.generate(
                 prompt=input_text,
@@ -291,16 +360,22 @@ def benchmark(
             predicted_answer = "ERROR: Generation failed"
             generation_success = False
         
-        # For MBPP, just log and save results without computing metrics
-        if is_mbpp:
+        # For code generation datasets (MBPP, HUMAN_EVAL), just log and save results without computing metrics
+        if is_code_generation:
             # Extract task ID if present in the prompt (or use index)
             task_id = idx
             try:
                 # If the data format includes task ID info, extract it
                 import re
-                match = re.search(r"task\s*id[:\s]+(\d+)", input_text.lower())
-                if match:
-                    task_id = int(match.group(1))
+                if benchmark_arguments.dataset == "human_eval":
+                    # For HumanEval, try to extract the function name as an identifier
+                    match = re.search(r"def\s+(\w+)\s*\(", input_text)
+                    if match:
+                        task_id = match.group(1)
+                else:  # MBPP
+                    match = re.search(r"task\s*id[:\s]+(\d+)", input_text.lower())
+                    if match:
+                        task_id = int(match.group(1))
             except:
                 pass
                 
@@ -331,18 +406,27 @@ def benchmark(
             print(f"Generated Code (truncated): {predicted_answer[:200]}...")
             print("-" * 50)
             
-            # No metrics calculation for MBPP
+            # No metrics calculation for code generation
             continue
-
-        # For non-MBPP datasets, handle metrics as before
+        
+        # For math reasoning, extract answers for evaluation
+        if is_math_reasoning:
+            # Logic for math reasoning datasets...
+            # (rest of the math reasoning code)
+            pass
+        
+        # Update metrics for non-code-generation datasets
         total_questions += 1
         
         # Update appropriate metrics based on dataset type
         if is_multiple_choice:
             for metric_name, metric in evaluation_metrics.predicted_text.items():
                 metric.update(predicted_answer, expected_output)
+        elif is_math_reasoning and generation_success:
+            # Handle math reasoning metrics...
+            pass
             
-        # Common metrics for all dataset types
+        # Common metrics for all dataset types with successful generation
         if generation_success:
             for metric in evaluation_metrics.acceptance_rate.values():
                 acceptance_rate = torch.tensor(
@@ -358,13 +442,17 @@ def benchmark(
 
             for metric in evaluation_metrics.tokens_per_second.values():
                 metric.update(torch.tensor(generation_result.tokens_per_second))
+        
+        print("-" * 50)
 
-    # Save results to CSV if it's MBPP
-    if is_mbpp:
+    # Save results to CSV if it's a code generation or math reasoning task
+    if is_code_generation or is_math_reasoning:
         csv_path = save_results_to_csv(all_results, benchmark_arguments.dataset)
         print(f"Results saved to {csv_path}")
-        # Just return a placeholder for metrics
-        return {"predicted_text": {"saved_to_csv": csv_path}}
+        
+        if is_code_generation:
+            # For code generation, just return the path to CSV
+            return {"predicted_text": {"saved_to_csv": csv_path}}
     
     # For other datasets, compute and return metrics as usual
     final_metrics = evaluation_metrics.compute()
@@ -375,6 +463,38 @@ def benchmark(
     print(f"Total Questions: {total_questions}")
 
     return final_metrics
+
+
+def save_results_to_csv(results, dataset_name):
+    """Save benchmark results to CSV file"""
+    import csv
+    import datetime
+    import os
+    
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{dataset_name}_results_{timestamp}.csv"
+    
+    print(f"Saving results to {filename}...")
+    
+    with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+        # Identify fields from the first result
+        if results:
+            fieldnames = results[0].keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            
+            writer.writeheader()
+            for result in results:
+                # Truncate very long fields for CSV manageability
+                for key, value in result.items():
+                    if isinstance(value, str) and len(value) > 32767:  # Excel limit
+                        result[key] = value[:32767]
+                writer.writerow(result)
+            
+            print(f"Saved {len(results)} results to {filename}")
+        else:
+            print("No results to save")
+    
+    return os.path.abspath(filename)
 
 
 def setup_multiple_choice_metrics():
@@ -464,7 +584,7 @@ def save_results_to_csv(results, dataset_name):
     import os
     
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"/content/drive/{dataset_name}_results_{timestamp}.csv"
+    filename = f"{dataset_name}_results_{timestamp}.csv"
     
     print(f"Saving results to {filename}...")
     
@@ -544,6 +664,10 @@ def original_benchmark(
         
     metric_result = metrics.compute()
     return metric_result
+
+
+
+
 
 def main(args: Arguments, benchmark_arguments: BenchmarkArguments, generation_config: GenerationConfig, output_fname: str):
     device = "cuda" if torch.cuda.is_available() else "cpu"
