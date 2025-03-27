@@ -17,6 +17,7 @@ import torch
 import transformers
 from tqdm import tqdm
 from data import EvaluationExample
+import csv
 
 from torchmetrics.text import BLEUScore, ROUGEScore, EditDistance
 # TODO: create ExactMatch torchmetrics.text
@@ -40,6 +41,8 @@ from self_speculation.generator_base import (
 
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from typing import Any
+from data import extract_answer_from_gsm8k
+from data import extract_answer_from_math
 
 log = logging.getLogger(__name__)
 
@@ -360,6 +363,9 @@ def benchmark(
             predicted_answer = "ERROR: Generation failed"
             generation_success = False
         
+        # Update total questions count
+        total_questions += 1
+        
         # For code generation datasets (MBPP, HUMAN_EVAL), just log and save results without computing metrics
         if is_code_generation:
             # Extract task ID if present in the prompt (or use index)
@@ -410,21 +416,73 @@ def benchmark(
             continue
         
         # For math reasoning, extract answers for evaluation
-        if is_math_reasoning:
-            # Logic for math reasoning datasets...
-            # (rest of the math reasoning code)
-            pass
-        
-        # Update metrics for non-code-generation datasets
-        total_questions += 1
-        
+        elif is_math_reasoning:
+            # Log the full inputs/outputs
+            print(f"Question: {input_text[:300]}...")
+            print(f"Model Response: {predicted_answer[:300]}...")
+            
+            # Extract answers from reference and prediction
+            if benchmark_arguments.dataset == "gsm8k":
+                from data import extract_answer_from_gsm8k
+                expected_answer = extract_answer_from_gsm8k(expected_output)
+                pred_answer = extract_answer_from_gsm8k(predicted_answer)
+            else:  # MATH dataset
+                from data import extract_answer_from_math
+                expected_answer = extract_answer_from_math(expected_output)
+                pred_answer = extract_answer_from_math(predicted_answer)
+            
+            print(f"Extracted expected answer: {expected_answer}")
+            print(f"Extracted predicted answer: {pred_answer}")
+            
+            # Check if answer is correct
+            is_correct = False
+            if pred_answer and expected_answer:
+                # Normalize and compare
+                norm_pred = normalize_math_answer(pred_answer)
+                norm_expected = normalize_math_answer(expected_answer)
+                is_correct = (norm_pred == norm_expected)
+                
+                if is_correct:
+                    print("✓ CORRECT")
+                else:
+                    print("✗ INCORRECT")
+                    print(f"Normalized expected: {norm_expected}")
+                    print(f"Normalized predicted: {norm_pred}")
+            
+            # Store result for CSV export
+            result_entry = {
+                "idx": idx,
+                "question": input_text,
+                "full_expected_solution": expected_output,
+                "extracted_expected_answer": expected_answer,
+                "full_generated_solution": predicted_answer,
+                "extracted_predicted_answer": pred_answer,
+                "is_correct": is_correct if (pred_answer and expected_answer) else "Unknown"
+            }
+            
+            # Add generation metrics if available
+            if generation_success:
+                result_entry.update({
+                    "acceptance_rate": generation_result.generation_strategy_result.acceptance_rate or 0,
+                    "total_time": generation_result.total_time,
+                    "tokens_per_second": generation_result.tokens_per_second,
+                    "num_tokens": generation_result.num_tokens_generated
+                })
+            
+            all_results.append(result_entry)
+            
+            # Update metrics for math reasoning
+            if generation_success:
+                for metric_name, metric in evaluation_metrics.predicted_text.items():
+                    if metric_name == "accuracy":
+                        # For accuracy, we pass 1.0 if correct, 0.0 if incorrect
+                        accuracy_value = 1.0 if is_correct else 0.0
+                        metric.update(torch.tensor(accuracy_value))
+            
         # Update appropriate metrics based on dataset type
-        if is_multiple_choice:
+        elif is_multiple_choice:
             for metric_name, metric in evaluation_metrics.predicted_text.items():
                 metric.update(predicted_answer, expected_output)
-        elif is_math_reasoning and generation_success:
-            # Handle math reasoning metrics...
-            pass
             
         # Common metrics for all dataset types with successful generation
         if generation_success:
@@ -463,39 +521,6 @@ def benchmark(
     print(f"Total Questions: {total_questions}")
 
     return final_metrics
-
-
-def save_results_to_csv(results, dataset_name):
-    """Save benchmark results to CSV file"""
-    import csv
-    import datetime
-    import os
-    
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{dataset_name}_results_{timestamp}.csv"
-    
-    print(f"Saving results to {filename}...")
-    
-    with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-        # Identify fields from the first result
-        if results:
-            fieldnames = results[0].keys()
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            
-            writer.writeheader()
-            for result in results:
-                # Truncate very long fields for CSV manageability
-                for key, value in result.items():
-                    if isinstance(value, str) and len(value) > 32767:  # Excel limit
-                        result[key] = value[:32767]
-                writer.writerow(result)
-            
-            print(f"Saved {len(results)} results to {filename}")
-        else:
-            print("No results to save")
-    
-    return os.path.abspath(filename)
-
 
 def setup_multiple_choice_metrics():
     """Set up metrics for multiple-choice QA datasets"""
