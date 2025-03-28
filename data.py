@@ -437,24 +437,24 @@ def prepare_math_format(data_path: str, n_shot: int = 0, seed: int = 42, templat
     """
     random.seed(seed)
     
-    # Load the dataset
-    if data_path:
-        # Load from local path if provided
-        import json
-        with open(data_path, 'r') as f:
-            data = json.load(f)
-        all_problems = data['problems'] if 'problems' in data else data
-    else:
-        # Otherwise load from Hugging Face
-        math_dataset = load_dataset("hendrycks/math", split="test")
-        all_problems = []
-        for item in math_dataset:
-            all_problems.append({
-                'problem': item['problem'],
-                'solution': item['solution'],
-                'level': item['level'],
-                'type': item['type']
-            })
+    # # Load the dataset
+    # if data_path:
+    #     # Load from local path if provided
+    #     import json
+    #     with open(data_path, 'r') as f:
+    #         data = json.load(f)
+    #     all_problems = data['problems'] if 'problems' in data else data
+    # else:
+    # Otherwise load from Hugging Face
+    math_dataset = load_dataset("HuggingFaceH4/math", split="test")
+    all_problems = []
+    for item in math_dataset:
+        all_problems.append({
+            'problem': item['problem'],
+            'solution': item['solution'],
+            'level': item['level'],
+            'type': item['type']
+        })
     
     # Create shots for few-shot learning
     prompt_shots = ""
