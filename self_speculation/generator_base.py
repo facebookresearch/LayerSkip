@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 import torch
-
 import transformers
 
 
@@ -43,12 +42,20 @@ class GenerationConfig:
     no_repeat_ngram_size: int = None
     stop_words: List[str] = None
     stop_token_ids: List[int] = None
-    dropout_rate: float = 0.0  # Maximum dropout rate for LayerDrop
-    layerdrop_seed: Optional[int] = None  # Random seed for reproducible LayerDrop
+
+    # Parameters for LayerDrop (if used)
+    dropout_rate: float = 0.0  
+    layerdrop_seed: Optional[int] = None  
+
+    # New parameters for Depth-Adaptive strategies
+    halting_threshold: float = 0.99
+    min_layers: int = 4
+    max_layers: Optional[int] = None
 
     def __post_init__(self):
         if self.stop_token_ids is None:
             self.stop_token_ids = []
+
 
 class GenerationStrategy:
     def generate_token_ids(
@@ -59,7 +66,7 @@ class GenerationStrategy:
         generation_config: GenerationConfig,
         logits_processors: Optional[transformers.generation.logits_process.LogitsProcessorList] = None,
         stopping_criteria: Optional[transformers.StoppingCriteriaList] = None,
-        streamer: Optional[transformers.TextStreamer] = None,  
+        streamer: Optional[transformers.TextStreamer] = None,
     ) -> GenerationStrategyResult:
         raise NotImplementedError()
 
@@ -77,23 +84,21 @@ class HuggingfaceLlamaGenerator:
         self.generation_strategy = generation_strategy
 
     def create_logits_processors(
-            self,
-            generation_config: GenerationConfig,
+        self,
+        generation_config: GenerationConfig,
     ) -> transformers.generation.logits_process.LogitsProcessorList:
         logits_processors: transformers.generation.logits_process.LogitsProcessorList = transformers.generation.logits_process.LogitsProcessorList()
         if generation_config.no_repeat_ngram_size:
             logits_processors.append(transformers.generation.logits_process.NoRepeatNGramLogitsProcessor(generation_config.no_repeat_ngram_size))
-
         return logits_processors
 
     def create_stopping_criteria(
-            self,
-            generation_config: GenerationConfig,
+        self,
+        generation_config: GenerationConfig,
     ) -> transformers.StoppingCriteriaList:
         stopping_criteria: transformers.StoppingCriteriaList = transformers.StoppingCriteriaList()
         if generation_config.stop_words:
             stopping_criteria.append(transformers.StopStringCriteria(self.tokenizer, generation_config.stop_words))
-
         return stopping_criteria
 
     def generate(

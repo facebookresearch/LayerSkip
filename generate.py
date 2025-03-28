@@ -29,11 +29,13 @@ from self_speculation.generator_base import (
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from self_speculation.speculative_streamer import SpeculativeTextStreamer
 from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
+# NEW: Import the token-level depth-adaptive strategy
+from self_speculation.depth_adaptive_token_generator import DepthAdaptiveTokenGenerationStrategy
 
 class StreamerType(str, Enum):
-    NONE="none"
-    STANDARD="standard"
-    SPECULATIVE="speculative"
+    NONE = "none"
+    STANDARD = "standard"
+    SPECULATIVE = "speculative"
 
 @dataclass
 class GenerateArguments:
@@ -43,7 +45,7 @@ def setup(args, device: str = "cuda"):
     """Setup function for single GPU or distributed training."""
     if device == "cuda":
         torch.cuda.set_device(0)  # Use first GPU
-        
+
     # Skip distributed setup if running on single GPU
     if not args.distributed:  # Add this condition
         return
@@ -88,6 +90,7 @@ def main(args: Arguments, generate_arguments: GenerateArguments, generation_conf
         case _:
             raise ValueError(f"Unsupported streamer type {generate_arguments.streamer}")
 
+    # Generation strategy selection with new branch for token-level adaptive strategy.
     if generation_config.generation_strategy == "autoregressive":
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
@@ -96,6 +99,12 @@ def main(args: Arguments, generate_arguments: GenerateArguments, generation_conf
         generation_strategy: GenerationStrategy = LayerDropGenerationStrategy(
             dropout_rate=generation_config.dropout_rate,
             seed=generation_config.layerdrop_seed
+        )
+    elif generation_config.generation_strategy == "depth_adaptive_token":
+        generation_strategy: GenerationStrategy = DepthAdaptiveTokenGenerationStrategy(
+            halting_threshold=generation_config.halting_threshold,
+            min_layers=generation_config.min_layers,
+            max_layers=generation_config.max_layers,
         )
     else:
         raise Exception(f"Unsupported generation strategy: {generation_config.generation_strategy}")
@@ -118,7 +127,7 @@ def main(args: Arguments, generate_arguments: GenerateArguments, generation_conf
         print()
 
         print(colorama.Fore.BLUE, end="")
-        prompt=sys.stdin.read()
+        prompt = sys.stdin.read()
         print(colorama.Style.RESET_ALL, end=" ")
 
         try:

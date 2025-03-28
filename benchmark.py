@@ -40,6 +40,7 @@ from self_speculation.generator_base import (
 from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
 from typing import Any
+from self_speculation.depth_adaptive_token_generator import DepthAdaptiveTokenGenerationStrategy
 
 log = logging.getLogger(__name__)
 
@@ -290,7 +291,7 @@ def benchmark(
     """
     Benchmark function optimized for multiple-choice QA datasets like MMLU and RACE-M.
     """
-    # First, let's set up the appropriate generation strategy
+    # Set up the appropriate generation strategy.
     if generation_config.generation_strategy == "autoregressive":
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
@@ -299,6 +300,12 @@ def benchmark(
         generation_strategy: GenerationStrategy = LayerDropGenerationStrategy(
             dropout_rate=generation_config.dropout_rate,
             seed=generation_config.layerdrop_seed or seed
+        )
+    elif generation_config.generation_strategy == "depth_adaptive_token":
+        generation_strategy: GenerationStrategy = DepthAdaptiveTokenGenerationStrategy(
+            halting_threshold=generation_config.halting_threshold,
+            min_layers=generation_config.min_layers,
+            max_layers=generation_config.max_layers,
         )
     else:
         raise ValueError(

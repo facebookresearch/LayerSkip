@@ -491,3 +491,75 @@ def forward_with_layerdrop(
         logits=logits, 
         past_key_values=past_key_values.to_legacy_cache()
     )
+
+def forward_depth_adaptive_token(
+    model: transformers.LlamaForCausalLM,
+    input_ids: torch.Tensor,
+    past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
+    halting_threshold: float = 0.99,
+    min_layers: int = 4,
+    max_layers: Optional[int] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Token-level forward pass with early exit.
+    
+    For each token, computes a halting probability at every layer:
+      - h_t^(l) = sigmoid(w^T * h_t^(l) + b)
+    Accumulates these probabilities per token until reaching a threshold.
+    Returns:
+      - final_hidden_states: A weighted combination of hidden states per token.
+      - exit_mask: A boolean mask indicating which tokens have halted.
+    """
+    device = input_ids.device
+    hidden_states = model.model.embed_tokens(input_ids)  # Shape: [batch, seq_len, hidden_dim]
+    batch_size, seq_len, hidden_dim = hidden_states.shape
+    # Initialize final outputs and per-token cumulative halting probability.
+    final_outputs = torch.zeros_like(hidden_states)
+    cumulative_halting_prob = torch.zeros(batch_size, seq_len, device=device)
+    exit_mask = torch.zeros(batch_size, seq_len, dtype=torch.bool, device=device)
+
+    total_layers = len(model.model.layers)
+    max_layers = max_layers or total_layers
+
+    # Initialize halting module (a simple linear layer) once.
+    halting_layer = torch.nn.Linear(hidden_dim, 1).to(device)
+
+    for layer_idx, decoder_layer in enumerate(model.model.layers):
+        if layer_idx >= max_layers:
+            break
+        # Process through the current layer.
+        hidden_states = decoder_layer(
+            hidden_states,
+            attention_mask=None,      # Adjust based on your model specifics.
+            position_ids=None,        # Adjust as needed.
+            past_key_value=past_key_values,
+            output_attentions=False,
+            use_cache=True,
+            padding_mask=None,
+        )
+        # Compute per-token halting probabilities.
+        # h_t^(l) = sigmoid(halting_layer(hidden_states)) → shape: [batch, seq_len, 1]
+        halting_probs = torch.sigmoid(halting_layer(hidden_states)).squeeze(-1)  # Shape: [batch, seq_len]
+        # Calculate remaining probability for each token.
+        remaining_prob = 1 - cumulative_halting_prob
+        # Current contribution: current_halting = h_t^(l) * remaining_prob.
+        current_halting = halting_probs * remaining_prob
+        cumulative_halting_prob += current_halting
+        # Weight the hidden states by the current halting probability.
+        final_outputs += hidden_states * current_halting.unsqueeze(-1)
+
+        # Enforce minimum layers before considering halting.
+        if layer_idx < min_layers - 1:
+            continue
+
+        # Update exit mask where cumulative probability meets or exceeds threshold.
+        newly_halted = cumulative_halting_prob >= halting_threshold
+        exit_mask = exit_mask | newly_halted
+
+        # If all tokens have halted, we can break early.
+        if exit_mask.all():
+            break
+
+    # For tokens that never reached the threshold, add remaining hidden states weighted by residual.
+    final_outputs += hidden_states * (1 - cumulative_halting_prob).unsqueeze(-1)
+    return final_outputs, exit_mask
