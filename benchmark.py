@@ -32,6 +32,7 @@ from utils import ROUGEScoreWrapper
 import arguments
 from arguments import Arguments, simple_parse_args_string
 from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
+from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
 from self_speculation.generator_base import (
     GenerationConfig,
     GenerationResult,
@@ -300,6 +301,11 @@ def benchmark(
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
         generation_strategy: GenerationStrategy = SelfSpeculativeGenerationStrategy()
+    elif generation_config.generation_strategy == "layerdrop":
+        generation_strategy: GenerationStrategy = LayerDropGenerationStrategy(
+            dropout_rate=generation_config.dropout_rate,
+            seed=generation_config.layerdrop_seed or seed
+        )
     else:
         raise ValueError(
             f"Unrecognized generation strategy: {generation_config.generation_strategy}"
@@ -646,6 +652,11 @@ def original_benchmark(
         generation_strategy: GenerationStrategy = AutoRegressiveGenerationStrategy()
     elif generation_config.generation_strategy == "self_speculative":
         generation_strategy: GenerationStrategy = SelfSpeculativeGenerationStrategy()
+    elif generation_config.generation_strategy == "layerdrop":
+            generation_strategy: GenerationStrategy = LayerDropGenerationStrategy(
+                dropout_rate=generation_config.dropout_rate,
+                seed=generation_config.layerdrop_seed or seed
+            )
     else:
         raise Exception(
             f"Unsupported generation strategy: {generation_config.generation_strategy}"
