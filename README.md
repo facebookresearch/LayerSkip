@@ -8,7 +8,9 @@ This code base is the implementation of [LayerSkip: Enabling Early Exit Inferenc
 </div>
 
 ## News
-- [2024/11] 🤗 LayerSkip has been integrated into [Hugging Face `transformers`](https://huggingface.co/blog/layerskip).
+- [2024/11] 🤗 LayerSkip inference has been integrated into [Hugging Face `transformers`](https://huggingface.co/blog/layerskip).
+- [2024/12] 🔥 LayerSkip training recipe has been integrated into [PyTorch `torchtune`](https://github.com/pytorch/torchtune/pull/1076).
+- [2025/03] 🤗 LayerSkip training recipe implemented in [Hugging Face `trl`](https://github.com/huggingface/trl/pull/3111)
 
 ## Getting Started
 - Clone repo:
