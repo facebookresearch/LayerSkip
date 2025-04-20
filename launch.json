@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Python: Benchmark",
+        "type": "python",
+        "request": "launch",
+        "program": "C:\\Users\\adity\\LayerSkip\\benchmark.py",
+        "args": [
+          "--model", "C:\\Users\\adity\\LayerSkip_v2\\model_weights\\llama3_1B_local",
+          "--dataset", "mmlu",
+          "--num_samples", "100",
+          "--generation_strategy", "depth_adaptive_token",
+          "--halting_threshold", "0.99",
+          "--min_layers", "4",
+          "--output_dir", "./logs",
+          "--distributed", "False"
+        ],
+        "console": "integratedTerminal"
+      }
+    ]
+  }

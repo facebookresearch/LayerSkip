@@ -31,6 +31,8 @@ from self_speculation.speculative_streamer import SpeculativeTextStreamer
 from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
 # NEW: Import the token-level depth-adaptive strategy
 from self_speculation.depth_adaptive_token_generator import DepthAdaptiveTokenGenerationStrategy
+# NEW: Import the sequence-level depth-adaptive strategy
+from self_speculation.depth_adaptive_sequence_generator import DepthAdaptiveSequenceGenerationStrategy
 
 class StreamerType(str, Enum):
     NONE = "none"
@@ -102,6 +104,12 @@ def main(args: Arguments, generate_arguments: GenerateArguments, generation_conf
         )
     elif generation_config.generation_strategy == "depth_adaptive_token":
         generation_strategy: GenerationStrategy = DepthAdaptiveTokenGenerationStrategy(
+            halting_threshold=generation_config.halting_threshold,
+            min_layers=generation_config.min_layers,
+            max_layers=generation_config.max_layers,
+        )
+    elif generation_config.generation_strategy == "depth_adaptive_sequence":
+        generation_strategy: GenerationStrategy = DepthAdaptiveSequenceGenerationStrategy(
             halting_threshold=generation_config.halting_threshold,
             min_layers=generation_config.min_layers,
             max_layers=generation_config.max_layers,

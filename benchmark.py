@@ -32,6 +32,7 @@ from utils import ROUGEScoreWrapper
 import arguments
 from arguments import Arguments, simple_parse_args_string
 from self_speculation.autoregressive_generator import AutoRegressiveGenerationStrategy
+from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
 from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
 from self_speculation.generator_base import (
     GenerationConfig,
@@ -40,11 +41,10 @@ from self_speculation.generator_base import (
     HuggingfaceLlamaGenerator,
 )
 
-from self_speculation.self_speculation_generator import SelfSpeculativeGenerationStrategy
-from typing import Any
 from self_speculation.depth_adaptive_token_generator import DepthAdaptiveTokenGenerationStrategy
 from data import extract_answer_from_gsm8k
 from data import extract_answer_from_math
+from self_speculation.depth_adaptive_sequence_generator import DepthAdaptiveSequenceGenerationStrategy
 
 log = logging.getLogger(__name__)
 
@@ -309,6 +309,12 @@ def benchmark(
         )
     elif generation_config.generation_strategy == "depth_adaptive_token":
         generation_strategy: GenerationStrategy = DepthAdaptiveTokenGenerationStrategy(
+            halting_threshold=generation_config.halting_threshold,
+            min_layers=generation_config.min_layers,
+            max_layers=generation_config.max_layers,
+        )
+    elif generation_config.generation_strategy == "depth_adaptive_sequence":
+        generation_strategy: GenerationStrategy = DepthAdaptiveSequenceGenerationStrategy(
             halting_threshold=generation_config.halting_threshold,
             min_layers=generation_config.min_layers,
             max_layers=generation_config.max_layers,
@@ -664,6 +670,18 @@ def original_benchmark(
                 dropout_rate=generation_config.dropout_rate,
                 seed=generation_config.layerdrop_seed or seed
             )
+    elif generation_config.generation_strategy == "depth_adaptive_token":
+        generation_strategy: GenerationStrategy = DepthAdaptiveTokenGenerationStrategy(
+            halting_threshold=generation_config.halting_threshold,
+            min_layers=generation_config.min_layers,
+            max_layers=generation_config.max_layers,
+        )
+    elif generation_config.generation_strategy == "depth_adaptive_sequence":
+        generation_strategy: GenerationStrategy = DepthAdaptiveSequenceGenerationStrategy(
+            halting_threshold=generation_config.halting_threshold,
+            min_layers=generation_config.min_layers,
+            max_layers=generation_config.max_layers,
+        )
     else:
         raise Exception(
             f"Unsupported generation strategy: {generation_config.generation_strategy}"

@@ -122,7 +122,7 @@ def prepare_mbpp_format(data_path: str, template: str = None) -> List[Evaluation
             
             # Include test cases in the prompt to help the model understand the task
             if "test_list" in data_point and data_point["test_list"]:
-                prompt += "\n\nYou are an expert Python programmer, and here is your task: {prompt} Your code should pass these tests:\n\n{tests}\n[BEGIN]\n{code}\n[DONE]:\n"
+                prompt += "\n\nYou are an expert Python programmer, and here is your task: {prompt} You should return only a Python function and not bypass test cases by running assert statements. Your code should pass these tests:\n\n{tests}\n[BEGIN]\n{code}\n[DONE]:\n"
                 for test in data_point["test_list"]:
                     prompt += f"- {test}\n"
             

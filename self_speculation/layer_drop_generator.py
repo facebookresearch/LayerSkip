@@ -27,7 +27,7 @@ class LayerDropGenerationStrategy(GenerationStrategy):
         past_key_values = None
         input_ids = torch.tensor([input_ids]).to(model.device)
         output_ids: List[int] = []
-        
+        #print(f"Input IDs: {input_ids.shape}, Past Key Values: {past_key_values.shape}")
         # Use current dropout rate from generation config if provided
         dropout_rate = generation_config.dropout_rate if hasattr(generation_config, 'dropout_rate') else self.dropout_rate
 
@@ -70,7 +70,7 @@ class LayerDropGenerationStrategy(GenerationStrategy):
                 
             output_ids.append(next_token)
             input_ids = torch.tensor([[next_token]]).to(input_ids)
-            
+            print("Checking output ids:",output_ids)
         return GenerationStrategyResult(
             predicted_tokens=output_ids,
             acceptance_rate=None,  # Not applicable for LayerDrop

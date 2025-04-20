@@ -51,6 +51,7 @@ class GenerationConfig:
     halting_threshold: float = 0.99
     min_layers: int = 4
     max_layers: Optional[int] = None
+    seed: Optional[int] = None  # Add seed for reproducibility
 
     def __post_init__(self):
         if self.stop_token_ids is None:
