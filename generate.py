@@ -31,8 +31,7 @@ from self_speculation.speculative_streamer import SpeculativeTextStreamer
 from self_speculation.layer_drop_generator import LayerDropGenerationStrategy
 # NEW: Import the token-level depth-adaptive strategy
 from self_speculation.depth_adaptive_token_generator import DepthAdaptiveTokenGenerationStrategy
-# NEW: Import the sequence-level depth-adaptive strategy
-from self_speculation.depth_adaptive_sequence_generator import DepthAdaptiveSequenceGenerationStrategy
+
 
 class StreamerType(str, Enum):
     NONE = "none"
@@ -48,17 +47,32 @@ def setup(args, device: str = "cuda"):
     if device == "cuda":
         torch.cuda.set_device(0)  # Use first GPU
 
-    # Skip distributed setup if running on single GPU
-    if not args.distributed:  # Add this condition
-        return
+    # # Skip distributed setup if running on single GPU
+    # if not args.distributed:  # Add this condition
+    #     return
 
-    # Only run distributed setup if explicitly requested
-    torch.distributed.init_process_group(
-        backend="nccl" if device == "cuda" else "gloo",
-        init_method=args.dist_url,
-        world_size=args.world_size,
-        rank=args.rank,
-    )
+    # # Only run distributed setup if explicitly requested
+    # torch.distributed.init_process_group(
+    #     backend="nccl" if device == "cuda" else "gloo",
+    #     init_method=args.dist_url,
+    #     world_size=args.world_size,
+    #     rank=args.rank,
+    # )
+    # Set device based on distributed training configuration
+    if args.distributed:
+        # For distributed training, use the local_rank to determine which GPU to use
+        if args.local_rank == -1:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            torch.cuda.set_device(args.local_rank)
+            device = torch.device("cuda", args.local_rank)
+            # Initialize the process group
+            torch.distributed.init_process_group(backend="nccl")
+            args.world_size = torch.distributed.get_world_size()
+            args.rank = torch.distributed.get_rank()
+            print(f"Process rank: {args.rank}, device: {device}, world_size: {args.world_size}")
+    else:
+        device = args.device
 
 def load_model_and_tokenizer(args: Arguments, device: str = "auto"):
     local_model_path: str = args.model

@@ -26,6 +26,8 @@ class Arguments:
     seed: Optional[int] = 42
     output_dir: str = "./logs"
     distributed: bool = False
+    dist_url: str = "env://"
+    local_rank: int = -1  
 
 
 # Source: https://github.com/EleutherAI/lm-evaluation-harness/blob/a9eaaf46f1e246e5ce090e37f2f99fe1cfe5a919/lm_eval/utils.py

@@ -572,4 +572,3 @@ def get_data(
         evaluation_data_points = evaluation_data_points[:num_samples]
 
     return evaluation_data_points
-
