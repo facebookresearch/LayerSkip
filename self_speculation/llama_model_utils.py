@@ -346,24 +346,18 @@ def forward_remainder(
         full_past_key_values_length,  # we have no past for the full model
     )
 
-    next_decoder_cache = []
     hidden_states = inputs_embeds
     # TODO simplify
     full_hidden_states: Optional[torch.FloatTensor] = None
     for idx, decoder_layer in enumerate(model.model.layers):
         is_early_exit = idx < exit_layer
-        past_key_value = (
-            past_key_values[idx]
-            if (past_key_values is not None and idx < len(past_key_values))
-            else None
-        )
         if is_early_exit:
             # early hidden states: B x num_gen x C
             early_hidden_states = hidden_states[:, -num_tokens_to_generate:]
             early_position_ids = position_ids[:, -num_tokens_to_generate:]
 
             # create position embeddings to be shared across the decoder layers
-            position_embeddings = model.model.rotary_emb(hidden_states, position_ids)
+            position_embeddings = model.model.rotary_emb(hidden_states, early_position_ids)
 
             (hidden_states, ) = decoder_layer(
                 early_hidden_states,
