@@ -47,6 +47,23 @@ In order to access each model:
 
 Once you run those steps, the commands below to run the LayerSkip checkpoints should work.
 
+## Train
+To train any supported HuggingFace model with the LayerSkip approach:
+```bash
+torchrun train.py \
+    --ckpt "meta-llama/Llama-2-7b-hf" \
+    --ds_ckpt "WillHeld/top_v2" \
+    --template "### Instruction: {utterance}\n ### Response: {semantic_parse}" \
+    --lr 2e-5 \
+    --batch_size 8 \
+    --epochs 1 \
+    --eval_freq 5000 \
+    --early_exit_loss_scale 1.0 \
+    --save_steps 5000 \
+    --output_dir "./checkpoints/" \
+    --hub_id "hf_id/Llama-2-7b-hf-layerskip" \
+```
+
 ## Generate
 
 To run one of our models in interactive mode using regular autoregressive decoding:
