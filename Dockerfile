@@ -35,7 +35,7 @@ ENV CONDA_DEFAULT_ENV=layer_skip
 ENV PATH=$CONDA_DIR/envs/layer_skip/bin:$PATH
 
 # Install PyTorch CPU-only and other dependencies using Conda
-RUN conda install pytorch==2.2.1 torchvision==0.17.1 torchaudio==2.2.1 cpuonly -c pytorch -y
+RUN conda install pytorch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 cpuonly -c pytorch -y
 
 # Copy and install Python dependencies via pip (excluding torch, torchvision, torchaudio)
 COPY requirements.txt /app/requirements.txt
